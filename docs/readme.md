@@ -39,12 +39,12 @@ has a cheezy little piezo speaker that makes sine wave tone.
 In heavy seas, or with the motor running, such a weak alarm
 would be easy to miss, and frankly, if there is unexpected
 water coming coming in the boat it is one of the worst things
-that can happen.  This alarm will wake me up out of a drunk
-sleep, can be heard outside the boat, and will be noticed
+that can happen.  This alarm will wake everoone on the boat
+up, can be heard outside the boat, and will be noticed
 regardless of the sea state or if the motor is running.
 
 In my usaage the device, and box itself are placed inside
-of an compartment (near the batteries and bilge pumps) with
+a compartment (near the batteries and bilge pumps) with
 louvered slats on the door to let the sound out.
 
 It also provides a LED that I mount in the salon, which is
@@ -186,7 +186,7 @@ There will be a configuration function to reset the entire device.
 
 In addition to the relay in this circuit providing the ability to turn the pump
 on (regardless of the state of the primary builge pump switch), there will be
-an additional (large, physical) switch that can turn the bilge pump on regarldess
+an additional (large, physical) switch that can turn the bilge pump on regardless
 of the state of the arduino circuit wired in parallel to the relay.
 
 Due to the dual functionality of the signal/control wire to the bilge pump,
@@ -204,4 +204,4 @@ I believe the above is enough to lay out the requirements of the system.
 
 More detailed design information inluding Hardware (schematics and physical
 circuit designs), 3D printing models and information, and a detailed design
-of the User Interface.
+of the User Interface to follow.
