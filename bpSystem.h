@@ -4,7 +4,6 @@
 #include <TimeLib.h>
 
 
-
 #define DAY_HOURS   24
 #define WEEK_DAYS   7
 #define WEEK_HOURS  (WEEK_DAYS * DAY_HOURS)
@@ -68,8 +67,6 @@ class bpSystem
         void test_setAlarm(u8 alarm_mode);
 
 
-
-
     private:
 
         void init();                 // clear entire history and state
@@ -93,8 +90,7 @@ class bpSystem
         void clearAlarmState(u16 alarm_state);
         void setRelay(bool on);
 
-
-};
+};  // class bpSystem
 
 
 extern bpSystem bp;

@@ -213,13 +213,13 @@ of the User Interface to follow.
 
 
 - PREF_ERROR_RUN_TIME          default 10    seconds
-    the amount of time, from 0..254, that the primary pump may run, in seconds,
+    the amount of time, from 0..255, that the primary pump may run, in seconds,
     before generating an error state (chirps). 0 disables the function
 - PREF_CRITICAL_RUN_TIME      default 30     * 10 seconds
     the amount of time, the primary pump may run, in 10's of seconds, before
     generating an critical error (telephone ringing) alarm.
     The default of 30 is 300 seconds, or 5 minutes, upto a maximum of
-    254, about 45 minutes. 0 disables the function.
+    255, about 45 minutes. 0 disables the function.
 - PREF_ERROR_RUNS_PER_HOUR     default 2
     If the pump runs more than this number of times in an hour, generates
     an error state (chirps). 0 disables the function.
@@ -240,16 +240,15 @@ of the User Interface to follow.
     suppressed, or the emergency is state is cleared.
 - PREF_EXTRA_PRIMARY_TIME      seconds    default: 5
     When the primary bilge pump comes on, this determines a number of
-    seconds (0..254), which it will run minimum, or in addition to the for
+    seconds (0..255), which it will run minimum, or in addition to the for
     time which the bilge switch is activated.  0 disables the features.
 - PREF_EXTRA_PRIMARY_MODE      start/end   default: start
-    This preference determies whether the EXTRA_PRIMARY_TIME starts
-    from the moment the bilge switch turning on is detected (start),
-    turning on the relay in conjunction with the bilge switch,
-    or waiting until the bilge switch goes off (end) before re-engaging
-    the pump with the relay.
-    The pump must go off for 3 seconds before it will be re-engaged
-    if the mode is set to 'end'.
+    **'start'** == the relay is turned on m the moment the bilge switch comes on.
+    **'end'** == the relay is turned after the switch goes off, based on
+    PREF_END_PUMP_RELAY_DELAY
+- PREF_END_PUMP_RELAY_DELAY    0..255   seconds   default 2
+    The number of seconds to delay in 'end' mode after the bilge switch goes
+    off before engaging the relay.  May be 0.
 - PREF_ALARM  enabled/disabled default: enabled
     turns off the audio alarm permanently and can be
     used to turn it off in case of program error or

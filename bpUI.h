@@ -4,9 +4,6 @@
 #include "bpSystem.h"
 
 
-
-
-
 class bpUI
 {
     public:

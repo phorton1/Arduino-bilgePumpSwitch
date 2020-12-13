@@ -14,12 +14,13 @@
 #define PIN_ONBOARD_LED     13
     // see bpUI.cpp for other pin assignments
 
-#define PREF_ERROR_RUN_TIME          10
-#define PREF_CRITICAL_RUN_TIME       30
+#define PREF_ERROR_RUN_TIME          10         // secs
+#define PREF_CRITICAL_RUN_TIME       30         // secs
 #define PREF_ERROR_RUNS_PER_HOUR     3
 #define PREF_ERROR_RUNS_PER_DAY      12
-#define PREF_EXTRA_PRIMARY_MODE      1              // start, end
-#define PREF_EXTRA_PRIMARY_TIME      5
+#define PREF_EXTRA_PRIMARY_TIME      5          // secs
+#define PREF_EXTRA_PRIMARY_MODE      0          // start, end, if primary_time
+#define PREF_END_PUMP_RELAY_DELAY    2          // secs if mode=='end' and time != 0
 
 
 #define BILGE_SWITCH_DEBOUNCE_TIME  300     // ms
@@ -421,8 +422,7 @@ void bpSystem::loop()
         }
         else if (m_relay_delay)
         {
-            #define END_PUMP_RELAY_DELAY  3     // seconds
-            if (m_time > m_relay_delay + END_PUMP_RELAY_DELAY)
+            if (m_time > m_relay_delay + PREF_END_PUMP_RELAY_DELAY)
             {
                 m_relay_delay = 0;
                 m_relay_time = m_time;
