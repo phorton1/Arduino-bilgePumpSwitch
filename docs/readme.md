@@ -205,3 +205,316 @@ I believe the above is enough to lay out the requirements of the system.
 More detailed design information inluding Hardware (schematics and physical
 circuit designs), 3D printing models and information, and a detailed design
 of the User Interface to follow.
+
+
+## User Interface (General)
+
+### Preferences
+
+
+- PREF_ERROR_RUN_TIME          default 10    seconds
+    the amount of time, from 0..254, that the primary pump may run, in seconds,
+    before generating an error state (chirps). 0 disables the function
+- PREF_CRITICAL_RUN_TIME      default 30     * 10 seconds
+    the amount of time, the primary pump may run, in 10's of seconds, before
+    generating an critical error (telephone ringing) alarm.
+    The default of 30 is 300 seconds, or 5 minutes, upto a maximum of
+    254, about 45 minutes. 0 disables the function.
+- PREF_ERROR_RUNS_PER_HOUR     default 2
+    If the pump runs more than this number of times in an hour, generates
+    an error state (chirps). 0 disables the function.
+- PREF_ERROR_RUNS_PER_DAY      default 12
+    If the pump runs more than this number of times in a day, generates
+    an error state (chirps). 0 disables the function.
+- PREF_BACKLIGHT_ON            on/auto   default: on
+    by default the backlight is on all the time.
+    in automode the backlight will turn on if it is off and any button
+    is pressed.  it will remain on for 30 seconds after any button
+    activity.   In any error mode, it will come on and stay on until
+    the error state is cleared, and there is no other button activity
+    for 30 seconds.
+- PREF_PRIMARY_ON_EMERGENCY    on/off    default: on
+    In an emergency state (when the emergency bildge switch comes on),
+    the system will turn on the primary pump relay in case the primary
+    bilge switch has failed.    It will remain on until the alarm is
+    suppressed, or the emergency is state is cleared.
+- PREF_EXTRA_PRIMARY_TIME      seconds    default: 5
+    When the primary bilge pump comes on, this determines a number of
+    seconds (0..254), which it will run minimum, or in addition to the for
+    time which the bilge switch is activated.  0 disables the features.
+- PREF_EXTRA_PRIMARY_MODE      start/end   default: start
+    This preference determies whether the EXTRA_PRIMARY_TIME starts
+    from the moment the bilge switch turning on is detected (start),
+    turning on the relay in conjunction with the bilge switch,
+    or waiting until the bilge switch goes off (end) before re-engaging
+    the pump with the relay.
+    The pump must go off for 3 seconds before it will be re-engaged
+    if the mode is set to 'end'.
+- PREF_ALARM  enabled/disabled default: enabled
+    turns off the audio alarm permanently and can be
+    used to turn it off in case of program error or
+    other unforseen cases
+
+
+### LEDs and Alarms
+
+There are three LEDs on the box, and one external LED mounted in the salon.
+
+The LEDs on the box are respectively:
+
+  - RED - the emergency pump is on
+  - GREEN - the primary pump is on.  Flashes 2 times per sec if relay is on.
+  - YELLOW - indicates error levels
+
+And the YELLOW led gives the following signals:
+
+  - 2 flash every two seconds = error state
+  - 5 flashes every two second = critical error state
+  - continuous flashing = emergency state
+
+
+The external (red) LED is an amalgam of the the primary GREEN pump on indicator and the
+YELLOW error indictor.  It comes on whenever the primary pump runs, overriding
+any error flashes, and otherwise flashes with the YELLOW error indicator.
+
+
+The ALARM makes three different kinds of noises
+
+- a chirp every 5 every five seconds in an error state
+- a phone ringing sound every 5 seconds in a critical state
+- the full on car alarm sound in an emergency state (while the emergency
+  bilge pump is running)
+
+
+### Display and Buttons - General
+
+There are two buttona and a 2x16 character display.
+There's a lot of stuff to cram into that.
+Typically the left button is used for navigation and the right button
+for value changing.
+
+When the backlight is off, any keypress turns the backlight on, and is ignored.
+
+In an error state, any keypress supresses the audio alarm, and is ignored.
+
+
+### User Interface modes
+
+
+The user interface is intented to give "at a glance" statistics
+regarding recent runs of the bilge pump and the general state
+of the system.
+
+As envisioned, this means automatically cycling through a number
+of "screens" showing the number of runs in the last 24 hours,
+the amount of time since, and the duration, of the previous run
+
+
+**Main Screen:**
+
+  In normal operations, the main screen will show:
+
+    DAY 123 WEEK 456
+    12:32    45 secs
+
+  The main screen shows the number of runs in the last 24 hours,
+  along with the number of runs in the last 7 days.  The second
+  line shows the hours and minutes since, and duration of, the last
+  run of the primary pump
+
+  If the pump is running, the display will change to show the
+  duration of the current run (and the backlight will turn on
+  for 30 seconds, if it is set to auto).
+
+    DAY 123 WEEK 456
+    PUMP ON  45 secs
+
+
+**Error Screens, initial activation**
+
+  In event of one of the possible errors
+
+  - pump running too long
+  - too many runs per hour
+  - too many runs per day
+  - the emergency bilge switch has come on
+
+  The screen will show the highest error level, and a general
+  mesage describing the error
+
+    ERROR
+    RUNNING TOO LONG
+
+    ERROR
+    TOO MANY PER HR
+
+    ERROR
+    TOO MANY PER DAY
+
+    CRITICAL
+    RUNNING TOO LONG
+
+    EMERGENCY PUMP
+    ACTIVE               or ACTIVATED if it goes off
+
+  The error screen will toggle every two seconds with a message that tells the user
+  to press any button to suppress the alarm.
+
+    PRESS ANY BUTTON
+    TO STOP ALARM
+
+  Note that suppressing the alarm will stop it from sounding, but that the
+  system can encounter another, more error at any time, and may return to
+  the initial activation screen, if so.
+
+**Post error notification screen(s)**
+
+   Once a key has been pressed in the given error mode, the system
+   will revert to showing the statistics panel, with a possible
+   slight change, alternating with the error message screen, alternating
+   yet again with a message telling the user to press any button
+   to clear the error state.
+
+    ERROR
+    RUNNING TOO LONG
+
+    HOUR 13   DAY 12
+    PUMP ON   156 secs
+
+    PRESS ANY BUTTON
+    TO CLEAR ERROR
+
+
+**"Clearing" an error is a tricky idea.**
+
+   The system may still be in an error state, i.e. the emergency pump
+   or primary pump may still be running, or the bilge pump about to come
+   back on and re-trigger the per hour and per day limits.
+
+   This essentially has the function of clearing the historical counts
+   and starting a new day and a new hour, behaving as if the pump(s) had
+   just come on  at the moment the error is cleared.
+
+   The one that's particularly weird is the emergency pump causing the
+   audio alarm to immediately come back on as soon as the error is cleared.
+
+   THEREFORE WHILE THE EMERGENCY PUMP IS RUNNING YOU CANNOT CLEAR THE ERROR.
+   and instead the 3rd message will be
+
+    CANNOT CORRECT
+    ERROR CONDITION!
+
+
+## User Interface (detailed)
+
+   When the system is not in an error state, and the backlight is on,
+   the system will show the main screen initially.
+
+    DAY 123 WEEK 456
+    12:32    45 secs
+
+  Pressing the left button will cycle through a number of other screens
+  on which futher statistics can be seen, and configuration of the
+  preferences accomplished.
+
+**Additional Screens (in order)**
+
+   As the left key toggles through the items
+   the right key "goes" in or modifies tiems.
+
+   Note that an error condition will immediately leave
+   any of these screen and go to the error screen(s) above.
+
+   The first (next) screen that shows is the word 'STATISTICS'
+
+    STATISTICS
+
+        PREV DAY    123
+        DAY BEFORE  123
+
+        HOUR 12  DAY 123
+        WEEK 245 TOT 394     (max 999 shown)
+
+        DAY  AVG 23 secs
+        12   TO  34 secs
+
+        WEEK AVG 23 secs
+        12   TO  34 secs
+
+        TOT AVG 23 secs
+        12  TO  34 secs
+
+   Pressing the right key will toggle through the above screens,
+   including coming back to the word 'statistics'.  A left key
+   in any of the above (in any screen) will move to the next screen,
+   below.
+
+   The following are a blend of commands and preferences that
+   are reached by subsequent left presses:
+
+    ALARM
+          ENABLED        DISABLED
+
+    BACKLIGHT
+               ON         AUTO
+
+    PRIMARY PUMP
+                OFF       ON
+
+    EXTRA PRIMARY
+    MODE      START       END
+
+    EXTRA PRIMARY
+    secs          5       0 == off
+
+    ERROR RUN TIME        (now I want three buttons!)
+    secs         10       0 == off
+
+    CRITICAL RUN
+    TIME (10's)  30       0 == off
+
+    ERROR RUNS PER
+    HOUR          2       0 == off
+
+    ERROR RUNS PER
+    DAY          12       0 == off
+
+    PRIMARY ON
+    EMERGENCY    ON      OFF
+
+    SELF TEST
+            PERFORM       PLEASE WAIT
+
+    RESET STATISTICS
+            PERFORM
+
+    FACTORY RESET
+            PERFORM
+
+            ARE YOU SURE?
+                       YES  - returns to main screen
+
+    left button goes back to the top from here
+
+The above screens include all of the preferences and several
+aditional functions:
+
+ - PRIMARY_PUMP on off gives a manual method to turn on the pump
+   relay. Note that the relay is ALREADY wired in parallel
+   to a switch that can perform this function, so this is
+   mostly a testing function.
+
+ - SELF TEST will toggle the LEDs and the pump relay,
+   and chirp to alarm three times to make sure everyting
+   is working
+ - RESET_STATITICS will cause the device to clear it's internal
+   statistics
+
+ - FACTORY reset (with confirmation) will return the device
+   to it's initial state.
+
+
+Note that SELF TEST and RESET_STATISTICS are the equivilant
+of rebooting the unit, which could also be accomplished with
+the Arduino reset button and/or a power switch on the box's
+12V power supply.
