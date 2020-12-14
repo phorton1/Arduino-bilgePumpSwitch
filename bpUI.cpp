@@ -1,8 +1,8 @@
 #include "myDebug.h"
 #include "bpUI.h"
 #include "bpButtons.h"
-#include "bpPrefs.h"
-#include <LiquidCrystal_I2C.h>
+#include "bpScreen.h"
+
 
 #define dbg_ui  0
 
@@ -25,6 +25,7 @@ bpUI bpui;
 LiquidCrystal_I2C lcd(0x27,16,2);
     // set the LCD address to 0x27 for a 16 chars and 2 line display
     // The display uses A4 (SDA) and A5 (SCL)
+
 
 
 
@@ -61,11 +62,7 @@ void bpUI::setup()
     buttons.setup();
     lcd.init();
     backlightOn();
-
-    lcd.setCursor(0,0);
-    lcd.print("bilgePumpSwitch");
-    lcd.setCursor(0,1);
-    lcd.print("inititalizing ...");
+    bp_screen.setup();
 
     selfTest();
 
@@ -159,14 +156,26 @@ void bpUI::onButton(int i)
 
     if (!m_backlight_on)
         backlightOn();
-    else if (m_ui_alarm_state && !(m_ui_alarm_state & ALARM_STATE_SUPPRESSED))
-        suppressAlarm();
+    else if (m_ui_alarm_state)
+    {
+        if (m_ui_alarm_state & ALARM_STATE_SUPPRESSED)
+        {
+            cancelAlarm();
+            bp_screen.setScreen(SCREEN_ALARM_CANCELED);
+        }
+        else
+        {
+            suppressAlarm();
+            bp_screen.setScreen(SCREEN_MAIN_ERROR);
+        }
+    }
 
     // handle the keystroke
 
     else
     {
         backlightOn();      // to set timer if needed
+        bp_screen.onButton(i);
     }
 }
 
@@ -220,16 +229,20 @@ void bpUI::run()
 
     // test UI - update clock once per second
 
-    static time_t last_time = 0;
-    time_t tm = bp.getTime();
-    if (tm != last_time)
-    {
-        last_time = tm;
-        lcd.setCursor(0,1);
-        lcd.print("seconds: ");
-        lcd.print(tm);
-        lcd.print("    ");
-    }
+    #if 0
+        static time_t last_time = 0;
+        time_t tm = bp.getTime();
+        if (tm != last_time)
+        {
+            last_time = tm;
+            lcd.setCursor(0,1);
+            lcd.print("seconds: ");
+            lcd.print(tm);
+            lcd.print("    ");
+        }
+    #endif
+
+    bp_screen.run();
 
     #if ADHOC_SERIAL_UI
         // AD-HOC SERIAL USER INTERFACE

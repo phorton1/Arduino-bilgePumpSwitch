@@ -18,7 +18,7 @@ void setup()
 {
     Serial.begin(115200);
     // delay(1000);
-    display(0,"bilgePumpSwitch v1.0 started...",0);
+    display(0,"bilgePumpSwitch v%S started...",prog_version);
     bp.setup();
 }
 

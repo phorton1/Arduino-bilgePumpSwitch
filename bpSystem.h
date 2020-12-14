@@ -23,16 +23,19 @@
 #define STATE_PUMP_ON              0x0001
 #define STATE_RELAY_ON             0x0002
 #define STATE_RELAY_FORCE_ON       0x0004
-#define STATE_EMERGENCY_PUMP_RUN   0x0010
-#define STATE_EMERGENCY_PUMP_ON    0x0020
-#define STATE_TOO_OFTEN_HOUR       0x0100
-#define STATE_TOO_OFTEN_DAY        0x0200
-#define STATE_TOO_LONG             0x0400
-#define STATE_CRITICAL_TOO_LONG    0x0800
+#define STATE_RELAY_EMERGENCY      0x0010
+#define STATE_EMERGENCY_PUMP_RUN   0x0020
+#define STATE_EMERGENCY_PUMP_ON    0x0040
+#define STATE_TOO_OFTEN_HOUR       0x0080
+#define STATE_TOO_OFTEN_DAY        0x0100
+#define STATE_TOO_LONG             0x0200
+#define STATE_CRITICAL_TOO_LONG    0x0400
 
 
 extern const PROGMEM char *stateName(u16 state);
 extern const PROGMEM char *alarmStateName(u16 state);
+extern const char PROGMEM prog_version[];
+
 
 
 class bpSystem
@@ -47,6 +50,10 @@ class bpSystem
         // read-only accessors for UI
 
         time_t getTime()             { return m_time; }
+        time_t getLastPumpTime()     { return m_time1; }
+        time_t getSince()            { return m_time1 ? m_time - m_time1 : 0; }
+        time_t getPumpDuration()     { return m_duration; }
+
         u16 getState()               { return m_state; }
         u16 getAlarmState()          { return m_alarm_state; }
         int getHour()                { return m_hour; }
@@ -73,16 +80,21 @@ class bpSystem
         void init();                 // clear entire history and state
 
         time_t m_time;                  // in seconds since boot
+        int m_hour;                     // incremented every 3600 seconds, allows approx 4 years before wrapping (reset may be needed)
 
         u16 m_state;
         u16 m_alarm_state;
 
         time_t m_time1;                 // time since last pump1 state change
         uint32_t m_time1_millis;        // for debouncing pump1 switch
+        time_t m_duration;              // duration of last/current pump1 run
+
         uint32_t m_time2_millis;        // for debouncing pump2 switch
+
         time_t m_relay_time;            // when was the relay turned on (if timed, else this is zero)
         time_t m_relay_delay;           // 3 second delay for turning on AFTER pump stops
-        int m_hour;                     // incremented every 3600 seconds, allows approx 4 years before wrapping (reset may be needed)
+        time_t m_emergency_relay_time;  // if turned on due to PREF_PRIMARY_ON_EMERGENCY
+
         u8 m_hour_counts[MAX_HOURS];    // count of pump1 activations per hour in circular list
 
         void setState(u16 state);

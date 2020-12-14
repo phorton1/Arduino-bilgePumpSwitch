@@ -11,7 +11,9 @@
 #define PREF_EXTRA_PRIMARY_TIME      7  // 5          // secs
 #define PREF_EXTRA_PRIMARY_MODE      8  // 0          // start, end, if primary_time
 #define PREF_END_PUMP_RELAY_DELAY    9  // 2          // secs if mode=='end' and time != 0
-#define NUM_PREFS                    10
+#define PREF_PRIMARY_ON_EMERGENCY    10 // 255
+
+#define NUM_PREFS                    11
 
 
 extern void initPrefs();

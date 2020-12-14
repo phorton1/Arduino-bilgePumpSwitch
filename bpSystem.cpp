@@ -3,9 +3,16 @@
 #include "bpSystem.h"
 #include "bpUI.h"
 #include "bpPrefs.h"
+#include "bpScreen.h"
 
 
 #define dbg_sys   0
+
+#define DOWNGRADE_EMERGENCY_PUMP_TO_CRITICAL      1
+    // if set, the emergency alarm will be downgraded to the
+    // telephone ringing if and when emergency pump disengages
+
+const char prog_version[] PROGMEM = "1.1";
 
 
 #define PIN_SENSE1          A0
@@ -21,7 +28,7 @@
 #define BILGE_SWITCH_DEBOUNCE_TIME  300     // ms
     // 300 is artificially high for testing with wires on a breadboard
     // in practice it will probably be around 30 or less
-#define PUMP_SENSE_THRESHOLD            500
+#define PUMP_SENSE_THRESHOLD            260
     // We use a 12V resistor dividor network and analog inputs.
     // This constant can be modified accordingly.
 
@@ -42,10 +49,13 @@ void bpSystem::init()
     m_hour = 0;
     m_state = 0;
     m_alarm_state = 0;
+
     m_time1 = 0;
     m_time1_millis = 0;
     m_time2_millis = 0;
     m_relay_time = 0;
+    m_relay_delay = 0;
+    m_emergency_relay_time = 0;
     memset(m_hour_counts,0,MAX_HOURS);
 }
 
@@ -71,12 +81,14 @@ void bpSystem::setup()
 
 const PROGMEM char *stateName(u16 state)
 {
-    if (state & STATE_EMERGENCY_PUMP_ON)    return PSTR("EMERGENCY_PUMP_ON");
-    if (state & STATE_EMERGENCY_PUMP_RUN)   return PSTR("EMERGENCY_PUMP_RUN");
-    if (state & STATE_CRITICAL_TOO_LONG)    return PSTR("CRITICAL_TOO_LONG");
-    if (state & STATE_TOO_LONG)             return PSTR("TOO_LONG");
-    if (state & STATE_TOO_OFTEN_DAY)        return PSTR("TOO_OFTEN_DAY");
-    if (state & STATE_TOO_OFTEN_HOUR)       return PSTR("TOO_OFTEN_HOUR");
+    //                                                  "                "
+    if (state & STATE_EMERGENCY_PUMP_ON)    return PSTR("EMERG PUMP IS ON");
+    if (state & STATE_EMERGENCY_PUMP_RUN)   return PSTR("EMERG PUMP RAN");
+    if (state & STATE_CRITICAL_TOO_LONG)    return PSTR("RUN WAY TOO LONG");
+    if (state & STATE_TOO_LONG)             return PSTR("RUN TOO LONG");
+    if (state & STATE_TOO_OFTEN_DAY)        return PSTR("TOO OFTEN_24 HRS");
+    if (state & STATE_TOO_OFTEN_HOUR)       return PSTR("TOO OFTEN HOUR");
+    if (state & STATE_RELAY_EMERGENCY)       return PSTR("RELAY_EMERGENCY");
     if (state & STATE_RELAY_ON)             return PSTR("RELAY_ON");
     if (state & STATE_RELAY_FORCE_ON)       return PSTR("FORCE_RELAY_ON");
     if (state & STATE_PUMP_ON)              return PSTR("PUMP_ON");
@@ -87,7 +99,7 @@ const PROGMEM char *stateName(u16 state)
 const PROGMEM char *alarmStateName(u16 alarm_state)
 {
     if (alarm_state & ALARM_STATE_EMERGENCY ) return PSTR("EMERGENCY");
-    if (alarm_state & ALARM_STATE_SUPPRESSED) return PSTR("ALARM_SUPRESSED");
+    if (alarm_state & ALARM_STATE_SUPPRESSED) return PSTR("ALARM SUPRESSED");
     if (alarm_state & ALARM_STATE_CRITICAL)   return PSTR("CRITICAL");
     if (alarm_state & ALARM_STATE_ERROR)      return PSTR("ERROR");
     return PSTR("NONE");
@@ -134,8 +146,20 @@ void bpSystem::clearError()
         m_hour_counts[m_hour] = 0;
     }
 
+    // re-initialize everything but stats
+
     m_state = 0;
     m_alarm_state = 0;
+    m_time1 = 0;
+    m_time1_millis = 0;
+    m_time2_millis = 0;
+    m_relay_time = 0;
+    m_relay_delay = 0;
+    m_emergency_relay_time = 0;
+
+    // and turn off the relay
+
+    digitalWrite(PIN_RELAY,0);
 }
 
 
@@ -153,9 +177,8 @@ void bpSystem::forceRelay(bool on)
     else
     {
         clearState(STATE_RELAY_FORCE_ON);
-        if (!(m_state & STATE_RELAY_ON))
+        if (!(m_state & (STATE_RELAY_ON|STATE_RELAY_EMERGENCY)))
             digitalWrite(PIN_RELAY,0);
-
     }
 }
 
@@ -188,6 +211,13 @@ void bpSystem::getCounts(int *hour_count, int *day_count, int *week_count, int *
         use_hour--;
         if (use_hour < 0) use_hour = MAX_HOURS;
     }
+
+    // constrain to 3 digits for display
+
+    if (*hour_count > 999) *hour_count = 999;
+    if (*day_count > 999) *day_count = 999;
+    if (*week_count > 999) *week_count = 999;
+    if (*total_count > 999) *total_count = 999;
 }
 
 
@@ -235,6 +265,8 @@ void bpSystem::setAlarmState(u16 alarm_state)
     new_state &= ~ALARM_STATE_SUPPRESSED;
     warning(0,"setAlarmState(%S=0x%02x) prev=0x%02x new=0x%02x",alarmStateName(alarm_state),alarm_state,m_alarm_state,m_alarm_state|alarm_state);
     m_alarm_state = new_state;
+    if (alarm_state)
+        bp_screen.setScreen(SCREEN_MAIN_ERROR);
 }
 
 
@@ -259,7 +291,7 @@ void bpSystem::setRelay(bool on)
     else
     {
         clearState(STATE_RELAY_ON);
-        if (!(m_state & STATE_RELAY_FORCE_ON))
+        if (!(m_state & (STATE_RELAY_FORCE_ON|STATE_RELAY_EMERGENCY)))
             digitalWrite(PIN_RELAY,0);
     }
 }
@@ -283,116 +315,139 @@ void bpSystem::loop()
 
     uint32_t now_millis = millis();
     if (!getPref(PREF_DISABLED) &&
-        !(m_state & STATE_RELAY_ON) &&
        (!m_time1_millis || now_millis >= m_time1_millis + BILGE_SWITCH_DEBOUNCE_TIME))
     {
+        // We want to measure the duration, including the relay time
+        // if the extra primary mode is set to START, but not if the
+        // relay is on AFTER the main pump goes off in END mode, or
+        // of any FORCED on situations ...
+
         int value = analogRead(PIN_SENSE1);
         u8 on = value > PUMP_SENSE_THRESHOLD ? 1 : 0;
         u8 prev_on = m_state & STATE_PUMP_ON ? 1 : 0;
-        time_t duration = prev_on ? m_time - m_time1 + 1 : 0;
+        time_t duration = prev_on ? m_time - m_time1 : 0;
+        if (prev_on && duration == 0) duration = 1;
 
-        // state has changed
-
-        if (on != prev_on)
+        if (on && prev_on &&
+            !(m_state & STATE_RELAY_FORCE_ON) &&
+            (!(m_state & STATE_RELAY_ON) || !getPref(PREF_EXTRA_PRIMARY_MODE)))
         {
-            m_time1_millis = now_millis;
-            display(dbg_sys,"value1=%d",value);
-            if (on)
+            m_duration = duration;
+
+            static time_t last_duration = 0;
+            if (last_duration != m_duration)
             {
-                setState(STATE_PUMP_ON);
+                last_duration = m_duration;
+                display(0,"duration=%d",m_duration);
+            }
+        }
 
-                if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
-                    getPref(PREF_EXTRA_PRIMARY_MODE) == 0)
+
+        if (!(m_state & STATE_RELAY_ON))
+        {
+            // state has changed
+            if (on != prev_on)
+            {
+                m_duration = 1;
+                m_time1_millis = now_millis;
+                display(dbg_sys,"value1=%d",value);
+                if (on)
                 {
-                    setRelay(1);
-                    m_relay_time = m_time;
-                }
+                    m_duration = 0;
+                    setState(STATE_PUMP_ON);
 
-                // increment the current hour count
-
-                int use_hour = m_hour % MAX_HOURS;
-                m_hour_counts[use_hour]++;
-
-                // check on state for too-often per hour error
-
-                if (getPref(PREF_ERROR_RUNS_PER_HOUR) &&
-                    !(m_state & STATE_TOO_OFTEN_HOUR) &&
-                    m_hour_counts[m_hour] > getPref(PREF_ERROR_RUNS_PER_HOUR))
-                {
-                    setState(STATE_TOO_OFTEN_HOUR);
-                    setAlarmState(ALARM_STATE_ERROR);
-                }
-
-                // check on state for too-often per day error
-                // calculate the count for the last 24 hours
-
-                if (getPref(PREF_ERROR_RUNS_PER_DAY) &&
-                    !(m_state & STATE_TOO_OFTEN_DAY))
-                {
-                    int use_day_hours = m_hour > 24 ? 24 : m_hour + 1;
-                    int day_count = 0;
-                    for (int i=0; i<use_day_hours; i++)
+                    if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
+                        getPref(PREF_EXTRA_PRIMARY_MODE) == 0)
                     {
-                        day_count += m_hour_counts[use_hour--];
-                        if (use_hour < 0) use_hour = MAX_HOURS;
+                        setRelay(1);
+                        m_relay_time = m_time;
                     }
 
-                    if (day_count > getPref(PREF_ERROR_RUNS_PER_DAY))
+                    // increment the current hour count
+
+                    int use_hour = m_hour % MAX_HOURS;
+                    m_hour_counts[use_hour]++;
+
+                    // check on state for too-often per hour error
+
+                    if (getPref(PREF_ERROR_RUNS_PER_HOUR) &&
+                        !(m_state & STATE_TOO_OFTEN_HOUR) &&
+                        m_hour_counts[m_hour] > getPref(PREF_ERROR_RUNS_PER_HOUR))
                     {
-                        setState(STATE_TOO_OFTEN_DAY);
+                        setState(STATE_TOO_OFTEN_HOUR);
                         setAlarmState(ALARM_STATE_ERROR);
                     }
+
+                    // check on state for too-often per day error
+                    // calculate the count for the last 24 hours
+
+                    if (getPref(PREF_ERROR_RUNS_PER_DAY) &&
+                        !(m_state & STATE_TOO_OFTEN_DAY))
+                    {
+                        int use_day_hours = m_hour > 24 ? 24 : m_hour + 1;
+                        int day_count = 0;
+                        for (int i=0; i<use_day_hours; i++)
+                        {
+                            day_count += m_hour_counts[use_hour--];
+                            if (use_hour < 0) use_hour = MAX_HOURS;
+                        }
+
+                        if (day_count > getPref(PREF_ERROR_RUNS_PER_DAY))
+                        {
+                            setState(STATE_TOO_OFTEN_DAY);
+                            setAlarmState(ALARM_STATE_ERROR);
+                        }
+                    }
                 }
-            }
 
-            // Primary pump off ...
-            // We cannot distinguish between it being turn off via the
-            // bilge switch, or if it our releay was on and just turned
-            // off, so we just record the actual time the pump ran ...
+                // Primary pump off ...
+                // We cannot distinguish between it being turn off via the
+                // bilge switch, or if it our releay was on and just turned
+                // off, so we just record the actual time the pump ran ...
 
-            else
-            {
-                // the duration is rounded up one second to account
-                // for sub-second runs.  INITIAL IMPLEMENTATION IS
-                // NOT MAINTAINING DURATION STATISTICS. After the
-                // basic UI and some alpha testing, we can see what
-                // kind of memory is left available for this
-                // information and how we might present it.
-
-                clearState(STATE_PUMP_ON);
-                display(dbg_sys,"duration=%d seconds",duration);
-                if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
-                    getPref(PREF_EXTRA_PRIMARY_MODE) == 1)
+                else
                 {
-                    m_relay_delay = m_time;
+                    // the duration is rounded up one second to account
+                    // for sub-second runs.  INITIAL IMPLEMENTATION IS
+                    // NOT MAINTAINING DURATION STATISTICS. After the
+                    // basic UI and some alpha testing, we can see what
+                    // kind of memory is left available for this
+                    // information and how we might present it.
+
+                    clearState(STATE_PUMP_ON);
+                    display(dbg_sys,"duration=%d seconds",duration);
+                    if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
+                        getPref(PREF_EXTRA_PRIMARY_MODE) == 1)
+                    {
+                        m_relay_delay = m_time;
+                    }
+
                 }
-
+                m_time1 = m_time;
             }
-            m_time1 = m_time;
-        }
 
-        // if this pump has run longer than the per run time preferences,
-        // set the state alarm state as needed
+            // if this pump has run longer than the per run time preferences,
+            // set the state alarm state as needed
 
-        if ((m_state & STATE_PUMP_ON) &&
-            getPref(PREF_ERROR_RUN_TIME) &&
-            !(m_state & STATE_TOO_LONG) &&
-            duration > getPref(PREF_ERROR_RUN_TIME))
-        {
-            setState(STATE_TOO_LONG);
-            setAlarmState(ALARM_STATE_ERROR);
-        }
+            if ((m_state & STATE_PUMP_ON) &&
+                getPref(PREF_ERROR_RUN_TIME) &&
+                !(m_state & STATE_TOO_LONG) &&
+                duration > getPref(PREF_ERROR_RUN_TIME))
+            {
+                setState(STATE_TOO_LONG);
+                setAlarmState(ALARM_STATE_ERROR);
+            }
 
-        if ((m_state & STATE_PUMP_ON) &&
-            getPref(PREF_CRITICAL_RUN_TIME) &&
-            !(m_state & STATE_CRITICAL_TOO_LONG) &&
-            duration > getPref(PREF_CRITICAL_RUN_TIME))
-        {
-            setState(STATE_CRITICAL_TOO_LONG);
-            setAlarmState(ALARM_STATE_CRITICAL);
-        }
-
-    }   // not disabled && relay off && and switch debounced
+            if ((m_state & STATE_PUMP_ON) &&
+                getPref(PREF_CRITICAL_RUN_TIME) &&
+                !(m_state & STATE_CRITICAL_TOO_LONG) &&
+                duration > getPref(PREF_CRITICAL_RUN_TIME))
+            {
+                setState(STATE_CRITICAL_TOO_LONG);
+                setAlarmState(ALARM_STATE_CRITICAL);
+            }
+        }   // relay off
+    }   // not disabled && and switch debounced
 
 
     // EMERGENCY PUMP
@@ -416,20 +471,37 @@ void bpSystem::loop()
             {
                 setState(STATE_EMERGENCY_PUMP_ON | STATE_EMERGENCY_PUMP_RUN);
                 setAlarmState(ALARM_STATE_EMERGENCY | ALARM_STATE_CRITICAL);
+
+                if (getPref(PREF_PRIMARY_ON_EMERGENCY))
+                {
+                    m_emergency_relay_time = m_time;
+                    setState(STATE_RELAY_EMERGENCY);
+                    digitalWrite(PIN_RELAY,1);
+                }
             }
             else
             {
                 clearState(STATE_EMERGENCY_PUMP_ON);
-                clearAlarmState(ALARM_STATE_EMERGENCY);
+                if (DOWNGRADE_EMERGENCY_PUMP_TO_CRITICAL)
+                    clearAlarmState(ALARM_STATE_EMERGENCY);
             }
         }
     }
 
 
-    // TIMER TURN OFFS
+    // TURN RELAY OFF (or ON) automatically
 
     if (getPref(PREF_EXTRA_PRIMARY_TIME))
     {
+        if (m_emergency_relay_time)
+        {
+            if (m_time > m_emergency_relay_time + getPref(PREF_PRIMARY_ON_EMERGENCY))
+            {
+                m_emergency_relay_time = 0;
+                clearState(STATE_RELAY_EMERGENCY);
+                setRelay(0);
+            }
+        }
         if (m_relay_time)
         {
             if (m_time > m_relay_time + getPref(PREF_EXTRA_PRIMARY_TIME))
@@ -442,10 +514,9 @@ void bpSystem::loop()
         {
             if (m_time > m_relay_delay + getPref(PREF_END_PUMP_RELAY_DELAY))
             {
+                setRelay(1);
                 m_relay_delay = 0;
                 m_relay_time = m_time;
-                setState(STATE_RELAY_ON);
-                digitalWrite(PIN_RELAY,1);
             }
         }
     }
