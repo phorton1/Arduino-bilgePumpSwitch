@@ -59,7 +59,8 @@ const char* const screen_lines[] PROGMEM = {
     s030,s031,
     s040,s041,
     s050,s051,
-    s060,s061 };
+    s060,s061,
+    s070,s071 };
 
 
 extern LiquidCrystal_I2C lcd;
@@ -143,6 +144,7 @@ void bpScreen::setScreen(int screen_num)
             print_lcd(1,n1);
             break;
 
+        case SCREEN_WEEK_STATS :
         case SCREEN_MAIN_STATS :
         {
             int state = bp.getState();
@@ -166,7 +168,11 @@ void bpScreen::setScreen(int screen_num)
                 sprintf(buf,"%02d:%02d",hours_since,mins_since);
             }
 
-            print_lcd(0,n0,hour_count,day_count);
+            if (m_screen_num == SCREEN_WEEK_STATS)
+                print_lcd(0,n0,week_count,total_count);
+            else
+                print_lcd(0,n0,hour_count,day_count);
+
             print_lcd(1,n1,buf,duration);
             break;
         }
@@ -256,7 +262,20 @@ void bpScreen::run()
 
 
 
-void bpScreen::onButton(int button_num)
+bool bpScreen::onButton(int button_num, u8 event_type)
     // called from bpUI::onButton in normal processing
 {
+    // button presses in error mode are precluded from
+    // arriving here in bpUI::onBotton()
+
+    display(dbg_scr,"bpScreen::onButton(%d,%d)",button_num,event_type);
+    if (button_num == 2)
+    {
+        int new_screen_num = m_screen_num + 1;
+        if (new_screen_num > SCREEN_WEEK_STATS)
+            new_screen_num = SCREEN_MAIN_STATS;
+        setScreen(new_screen_num);
+        return true;
+    }
+    return false;
 }

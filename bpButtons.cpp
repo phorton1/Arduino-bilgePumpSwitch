@@ -6,7 +6,7 @@
 // buttons 1 and 2 implement long press auto-increment
 
 
-#define dbg_buttons  1
+#define dbg_buttons  0
 
 
 #define PIN_BUTTON0          8
@@ -28,6 +28,7 @@ void bpButtons::setup()
     m_poll_time = 0;
     m_time = 0;
     m_repeat_count = 0;
+    m_handled = 0;
 
     for (int i=0; i<NUM_BUTTONS; i++)
         pinMode(PIN_BUTTON0+i,INPUT_PULLUP);
@@ -53,37 +54,60 @@ void bpButtons::run()
                 {
                     display(dbg_buttons,"BUTTON_PRESS(%d)",i);
                     m_state |= mask;
-                    bpui.onButton(i);
+                    m_handled = bpui.onButton(i,BUTTON_TYPE_PRESS);
                 }
                 else
                 {
                     display(dbg_buttons,"BUTTON_RELEASE(%d)",i);
                     m_state &= ~mask;
-                }
-            }
-            else if (i>0 && is_pressed)
-            {
-                #define START_REPEAT_DELAY   300    // ms
-                int dif = now - m_time;
-                if (dif > START_REPEAT_DELAY)
-                {
-                    // this will be called every 20 ms
-                    // we want to scale the mod for repeat count
-                    // from 10 down to 1 over 2 seconds
-
-                    dif -= START_REPEAT_DELAY;      // 0..n
-                    dif = 2000 - dif;               // 2000..n
-                    if (dif < 0) dif = 0;           // 2000..0
-                    dif = dif / 200;                // 10..0
-                    if (dif == 0) dif = 1;          // 10..1
-
-                    if (m_repeat_count % dif == 0)
+                    if (!m_handled)
                     {
-                        display(dbg_buttons,"BUTTON_REPEAT(%d)",i);
-                        bpui.onButton(i);
+                        display(dbg_buttons,"BUTTON_CLICK(%d)",i);
+                        bpui.onButton(i,BUTTON_TYPE_CLICK);
                     }
 
-                    m_repeat_count++;
+                    m_time = 0;
+                    m_repeat_count = 0;
+                    m_handled = 0;
+                }
+            }
+            else if (is_pressed)
+            {
+                int dif = now - m_time;
+
+                if (i>0)
+                {
+                    #define START_REPEAT_DELAY   300    // ms
+                    #define LONG_PRESS_TIME     1800    // ms
+
+                    if (dif > START_REPEAT_DELAY)
+                    {
+                        // this will be called every 20 ms
+                        // we want to scale the mod for repeat count
+                        // from 10 down to 1 over 2 seconds
+
+                        dif -= START_REPEAT_DELAY;      // 0..n
+                        dif = 2000 - dif;               // 2000..n
+                        if (dif < 0) dif = 0;           // 2000..0
+                        dif = dif / 200;                // 10..0
+                        if (dif == 0) dif = 1;          // 10..1
+
+                        if (m_repeat_count % dif == 0)
+                        {
+                            display(dbg_buttons,"BUTTON_REPEAT(%d)",i);
+                            bpui.onButton(i,BUTTON_TYPE_PRESS);
+                        }
+
+                        m_repeat_count++;
+                    }
+                }
+                else if (!m_handled && dif > LONG_PRESS_TIME)
+                {
+                    m_time = 0;
+                    m_repeat_count = 0;
+                    m_handled = true;
+                    display(dbg_buttons,"BUTTON_LONG_CLICK(%d)",i);
+                    bpui.onButton(i,BUTTON_TYPE_LONG_CLICK);
                 }
             }
         }

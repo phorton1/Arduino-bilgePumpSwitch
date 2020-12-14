@@ -227,6 +227,39 @@ any error flashes, and otherwise flashes with the YELLOW error indicator.
 
 ## USER INTERFACE
 
+In normal operation there are three basic things you can do, look at
+statistics, perform some commands, or configure the device.  These
+things are accessed by pressing the buttons on.
+
+The "main" (hour/day/since/duration) screen that shows all the time,
+is called the MAIN STATISTICS screen.  If there is no keyboard
+activity for 10 seconds, the system will revert back to the
+MAIN STATISTICS screen.
+
+
+- **Statistics** - When on the any statistics screen, including
+the "main" (hour/day/since/duration) screen that shows all the time,
+pressing the **right button** will toggle through various screens
+showing other statistics.
+
+- **Commands** - The **left button** will cycle through a list
+of commands (and come back to the MAIN STATISTICS screen ).
+When on a command screen, the command is *executed* by pressing
+the *right button*.
+
+- **Configuration** - **Long pressing the left button** for more
+than 1.5 seconds will enter *Configuration Mode*.  While in configuration
+mode the *left button* will cycle through a list of configuratio options,
+and the *middle and right* buttons will change the values.
+
+When finished with configuration mode, **long pressing the left button
+again** will exit Configuration mode and return to the MAIN STATISTICS
+screen. (or the system will automatically leave configuration mode
+after 10 seconds of inactivity).
+
+
+
+
 ### Preferences
 
 The preferences and commands can be accessed when the system is
@@ -273,9 +306,12 @@ button.  The enumerated prefernces are:
    the system will turn on the primary pump relay and keep it on
    for the additional given number of seconds after the emergency
    switch goes off (if it ever does). 0 disables the feature.
+- **FACTORY RESET** - restore system to it's initial state
+   Not really an option, but a command buried in the configuration
+   options list.
 
 
-### Commands available from configuration mode
+### Commands
 
 - **PRIMARY PUMP** on or off -
    Gives a manual method to turn on the pump
@@ -284,7 +320,6 @@ button.  The enumerated prefernces are:
    mostly a testing function.
 - **SELF TEST** runs the leds and relay through a cycle
 - **RESET** statistics (equivilant to rebooting)
-- **FACTORY RESET** - restore system to it's initial state
 
 
 ### Statistics

@@ -402,18 +402,11 @@ void bpSystem::loop()
 
                 // Primary pump off ...
                 // We cannot distinguish between it being turn off via the
-                // bilge switch, or if it our releay was on and just turned
+                // bilge switch, or if it our relay was on and just turned
                 // off, so we just record the actual time the pump ran ...
 
                 else
                 {
-                    // the duration is rounded up one second to account
-                    // for sub-second runs.  INITIAL IMPLEMENTATION IS
-                    // NOT MAINTAINING DURATION STATISTICS. After the
-                    // basic UI and some alpha testing, we can see what
-                    // kind of memory is left available for this
-                    // information and how we might present it.
-
                     clearState(STATE_PUMP_ON);
                     display(dbg_sys,"duration=%d seconds",duration);
                     if (getPref(PREF_EXTRA_PRIMARY_TIME) &&

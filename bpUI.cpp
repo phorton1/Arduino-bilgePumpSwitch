@@ -17,6 +17,7 @@
 #define PIN_PUMP1_LED        2
     // see bpButtons.cpp for button pin definitions
 
+#define MENU_TIMEOUT        12000
 #define ALARM_REPEAT_TIME    8000
 
 
@@ -42,6 +43,7 @@ void bpUI::init()
     m_ui_alarm_state = 0;
     m_alarm_time = 0;
     m_backlight_time = 0;
+    m_menu_timeout = 0;
 }
 
 
@@ -147,15 +149,20 @@ void bpUI::backlightOn()
 }
 
 
-void bpUI::onButton(int i)
+bool bpUI::onButton(int i, u8 event_type)
     // called from bpButtons::run()
 {
-    display(dbg_ui,"bpUI::onButton(%d)",i);
+    display(dbg_ui,"bpUI::onButton(%d,%d)",event_type);
+
 
     // eat the keystroke
 
     if (!m_backlight_on)
+    {
         backlightOn();
+        setMenuTimeout();
+        return true;
+    }
     else if (m_ui_alarm_state)
     {
         if (m_ui_alarm_state & ALARM_STATE_SUPPRESSED)
@@ -168,14 +175,16 @@ void bpUI::onButton(int i)
             suppressAlarm();
             bp_screen.setScreen(SCREEN_MAIN_ERROR);
         }
+        return true;
     }
 
     // handle the keystroke
 
     else
     {
+        setMenuTimeout();
         backlightOn();      // to set timer if needed
-        bp_screen.onButton(i);
+        return bp_screen.onButton(i,event_type);
     }
 }
 
@@ -227,7 +236,15 @@ void bpUI::run()
         lcd.noBacklight();
     }
 
-    // test UI - update clock once per second
+    // go back to the main screen after menu_timeout
+
+    if (!m_ui_alarm_state &&
+        bp_screen.getScreenNum() != SCREEN_MAIN_STATS &&
+        millis() > m_menu_timeout + MENU_TIMEOUT)
+    {
+        m_menu_timeout = 0;
+        bp_screen.setScreen(SCREEN_MAIN_STATS);
+    }
 
     #if 0
         static time_t last_time = 0;

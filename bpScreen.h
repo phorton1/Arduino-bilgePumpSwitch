@@ -21,7 +21,7 @@
 #define SCREEN_PRESS_TO_CANCEL 4
 #define SCREEN_ALARM_CANCELED  5
 #define SCREEN_MAIN_STATS      6
-#define SCREEN_HOUR_STATS      7
+#define SCREEN_WEEK_STATS      7
 
 
 
@@ -80,13 +80,18 @@ class bpScreen
             // The screen maintains itself if times or
             // config options change.
 
+        int getScreenNum()  { return m_screen_num; }
+
         void setScreen(int screen_num);
             // The system only directly sets the MAIN_SCREEN,
             // the ERROR_SCREEN, or the CONFIRM_FACTORY_RESET
             // screens.  The rest is handled internally
 
-        void onButton(int button_num);
+        bool onButton(int button_num, u8 event_type);
             // called from bpUI::onButton in normal processing
+            // return true if the BUTTON_TYPE_PRESS was handled
+            // return value ignored otherwise ..
+
 
     private:
 

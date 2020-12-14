@@ -15,6 +15,7 @@ class bpButtons
         uint32_t m_poll_time;
         uint32_t m_time;
         int      m_repeat_count;
+        bool     m_handled;
 };
 
 
