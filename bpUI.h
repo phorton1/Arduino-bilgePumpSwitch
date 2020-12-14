@@ -18,19 +18,19 @@ class bpUI
 
     private:
 
-        void init();
-
         u8 m_backlight_on;
         int m_ui_state;
         int m_ui_alarm_state;
         uint32_t m_alarm_time;
+        uint32_t m_backlight_time;
 
-        void test_setAlarm(u8 alarm_mode);
-
+        void init();
+        void selfTest();
         void suppressAlarm();
         void cancelAlarm();
         void handleAlarms();
-        void selfTest();
+        void backlightOn();
+        void test_setAlarm(u8 alarm_mode);
 
 };
 

@@ -3,14 +3,15 @@
 
 #define PREF_INITIALIZED             0  // 0          // 0 or 1
 #define PREF_DISABLED                1  // 0
-#define PREF_ERROR_RUN_TIME          2  // 10         // secs
-#define PREF_CRITICAL_RUN_TIME       3  // 30         // secs
-#define PREF_ERROR_RUNS_PER_HOUR     4  // 3
-#define PREF_ERROR_RUNS_PER_DAY      5  // 12
-#define PREF_EXTRA_PRIMARY_TIME      6  // 5          // secs
-#define PREF_EXTRA_PRIMARY_MODE      7  // 0          // start, end, if primary_time
-#define PREF_END_PUMP_RELAY_DELAY    8  // 2          // secs if mode=='end' and time != 0
-#define NUM_PREFS                    9
+#define PREF_BACKLIGHT_SECS          2  // 0          // 0 = on always, or number of secs to keep on
+#define PREF_ERROR_RUN_TIME          3  // 10         // secs
+#define PREF_CRITICAL_RUN_TIME       4  // 30         // secs
+#define PREF_ERROR_RUNS_PER_HOUR     5  // 3
+#define PREF_ERROR_RUNS_PER_DAY      6  // 12
+#define PREF_EXTRA_PRIMARY_TIME      7  // 5          // secs
+#define PREF_EXTRA_PRIMARY_MODE      8  // 0          // start, end, if primary_time
+#define PREF_END_PUMP_RELAY_DELAY    9  // 2          // secs if mode=='end' and time != 0
+#define NUM_PREFS                    10
 
 
 extern void initPrefs();

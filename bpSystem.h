@@ -28,6 +28,7 @@
 #define STATE_TOO_OFTEN_HOUR       0x0100
 #define STATE_TOO_OFTEN_DAY        0x0200
 #define STATE_TOO_LONG             0x0400
+#define STATE_CRITICAL_TOO_LONG    0x0800
 
 
 extern const PROGMEM char *stateName(u16 state);

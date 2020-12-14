@@ -4,11 +4,12 @@
 
 u8 pref_cache[NUM_PREFS];
 
-#define PREF_DEFAULT_INITIALIZED             2
+#define PREF_DEFAULT_INITIALIZED             3
     // change this to cause next reboot to reset preferences
     // just don't make it 255 (255 == eeprom not initialized)!
 
 #define PREF_DEFAULT_DISABLED                0
+#define PREF_DEFAULT_BACKLIGHT_SECS          30
 #define PREF_DEFAULT_ERROR_RUN_TIME          10         // secs
 #define PREF_DEFAULT_CRITICAL_RUN_TIME       30         // secs
 #define PREF_DEFAULT_ERROR_RUNS_PER_HOUR     3
@@ -21,6 +22,7 @@ const PROGMEM char *prefName(int pref_num)
 {
     if (pref_num == PREF_INITIALIZED         )  return PSTR("PREF_INITIALIZED");
     if (pref_num == PREF_DISABLED            )  return PSTR("PREF_DISABLED");
+    if (pref_num == PREF_BACKLIGHT_SECS      )  return PSTR("PREF_BACKLIGHT_SECS");
     if (pref_num == PREF_ERROR_RUN_TIME      )  return PSTR("PREF_ERROR_RUN_TIME");
     if (pref_num == PREF_CRITICAL_RUN_TIME   )  return PSTR("PREF_CRITICAL_RUN_TIME");
     if (pref_num == PREF_ERROR_RUNS_PER_HOUR )  return PSTR("PREF_ERROR_RUNS_PER_HOUR");
@@ -69,6 +71,7 @@ void resetPrefs()
     display(0,"resetPrefs()",0);
     EEPROM.write(PREF_INITIALIZED         , PREF_DEFAULT_INITIALIZED         );
     EEPROM.write(PREF_DISABLED            , PREF_DEFAULT_DISABLED            );
+    EEPROM.write(PREF_BACKLIGHT_SECS      , PREF_DEFAULT_BACKLIGHT_SECS      );
     EEPROM.write(PREF_ERROR_RUN_TIME      , PREF_DEFAULT_ERROR_RUN_TIME      );
     EEPROM.write(PREF_CRITICAL_RUN_TIME   , PREF_DEFAULT_CRITICAL_RUN_TIME   );
     EEPROM.write(PREF_ERROR_RUNS_PER_HOUR , PREF_DEFAULT_ERROR_RUNS_PER_HOUR );

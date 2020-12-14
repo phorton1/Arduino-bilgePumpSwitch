@@ -73,6 +73,7 @@ const PROGMEM char *stateName(u16 state)
 {
     if (state & STATE_EMERGENCY_PUMP_ON)    return PSTR("EMERGENCY_PUMP_ON");
     if (state & STATE_EMERGENCY_PUMP_RUN)   return PSTR("EMERGENCY_PUMP_RUN");
+    if (state & STATE_CRITICAL_TOO_LONG)    return PSTR("CRITICAL_TOO_LONG");
     if (state & STATE_TOO_LONG)             return PSTR("TOO_LONG");
     if (state & STATE_TOO_OFTEN_DAY)        return PSTR("TOO_OFTEN_DAY");
     if (state & STATE_TOO_OFTEN_HOUR)       return PSTR("TOO_OFTEN_HOUR");
@@ -111,7 +112,6 @@ void bpSystem::suppressAlarm()         // add the alarm suppressed bit
     display(0,"bpSystem::suppressAlarm() old_alarm_state=0x%02x  new=0x%02x",m_alarm_state,new_state);
     m_alarm_state = new_state;
 }
-
 
 
 void bpSystem::clearError()
@@ -158,6 +158,7 @@ void bpSystem::forceRelay(bool on)
 
     }
 }
+
 
 
 void bpSystem::test_setAlarm(u8 alarm_mode)
@@ -375,6 +376,7 @@ void bpSystem::loop()
 
         if ((m_state & STATE_PUMP_ON) &&
             getPref(PREF_ERROR_RUN_TIME) &&
+            !(m_state & STATE_TOO_LONG) &&
             duration > getPref(PREF_ERROR_RUN_TIME))
         {
             setState(STATE_TOO_LONG);
@@ -383,9 +385,10 @@ void bpSystem::loop()
 
         if ((m_state & STATE_PUMP_ON) &&
             getPref(PREF_CRITICAL_RUN_TIME) &&
+            !(m_state & STATE_CRITICAL_TOO_LONG) &&
             duration > getPref(PREF_CRITICAL_RUN_TIME))
         {
-            setState(STATE_TOO_LONG);
+            setState(STATE_CRITICAL_TOO_LONG);
             setAlarmState(ALARM_STATE_CRITICAL);
         }
 

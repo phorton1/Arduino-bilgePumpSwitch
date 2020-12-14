@@ -1,6 +1,7 @@
 #include "myDebug.h"
 #include "bpUI.h"
 #include "bpButtons.h"
+#include "bpPrefs.h"
 #include <LiquidCrystal_I2C.h>
 
 #define dbg_ui  0
@@ -39,6 +40,7 @@ void bpUI::init()
     m_ui_state = 0;
     m_ui_alarm_state = 0;
     m_alarm_time = 0;
+    m_backlight_time = 0;
 }
 
 
@@ -58,11 +60,8 @@ void bpUI::setup()
 
     buttons.setup();
     lcd.init();
+    backlightOn();
 
-    lcd.backlight();
-    m_backlight_on = 1;
-
-    // fslcd.noBacklight();
     lcd.setCursor(0,0);
     lcd.print("bilgePumpSwitch");
     lcd.setCursor(0,1);
@@ -137,13 +136,38 @@ void bpUI::cancelAlarm()
 }
 
 
+void bpUI::backlightOn()
+{
+    m_backlight_on = 1;
+
+    lcd.backlight();
+    m_backlight_on = 1;
+    if (getPref(PREF_BACKLIGHT_SECS))       // auto
+        m_backlight_time = bp.getTime();
+    else
+        m_backlight_time = 0;
+
+}
+
 
 void bpUI::onButton(int i)
     // called from bpButtons::run()
 {
     display(dbg_ui,"bpUI::onButton(%d)",i);
-    if (m_ui_alarm_state && !(m_ui_alarm_state & ALARM_STATE_SUPPRESSED))
+
+    // eat the keystroke
+
+    if (!m_backlight_on)
+        backlightOn();
+    else if (m_ui_alarm_state && !(m_ui_alarm_state & ALARM_STATE_SUPPRESSED))
         suppressAlarm();
+
+    // handle the keystroke
+
+    else
+    {
+        backlightOn();      // to set timer if needed
+    }
 }
 
 
@@ -154,7 +178,9 @@ void bpUI::onButton(int i)
 
 void bpUI::run()
 {
-    // display(0,"day(%d) hour(%d) seconds: %d",m_day,m_hour,m_time);
+    // note if the system or alarm_state changes
+    // and act accordingly
+
 
     int bp_state = bp.getState();
     if (m_ui_state != bp_state)
@@ -172,23 +198,41 @@ void bpUI::run()
         m_ui_alarm_state = bp_alarm_state;
         if (!(m_ui_alarm_state & ALARM_STATE_EMERGENCY))
             digitalWrite(PIN_ALARM,0);
+        if (m_ui_alarm_state)
+            backlightOn();
         m_alarm_time = 0;
     }
 
+    // handle alarms, buttons, and backlight
+
     handleAlarms();
-
-    lcd.setCursor(0,1);
-    lcd.print("seconds: ");
-    lcd.print(bp.getTime());
-    lcd.print("    ");
-
     buttons.run();
 
-    // USER INTERFACE
-    // Initial ad-hoc serial user interface to be replaced with
-    // LCD and buttons.
+    if (m_backlight_on &&
+        !m_ui_alarm_state &&
+        getPref(PREF_BACKLIGHT_SECS) &&
+        bp.getTime() > m_backlight_time + getPref(PREF_BACKLIGHT_SECS))
+    {
+        m_backlight_on = 0;
+        m_backlight_time = 0;
+        lcd.noBacklight();
+    }
+
+    // test UI - update clock once per second
+
+    static time_t last_time = 0;
+    time_t tm = bp.getTime();
+    if (tm != last_time)
+    {
+        last_time = tm;
+        lcd.setCursor(0,1);
+        lcd.print("seconds: ");
+        lcd.print(tm);
+        lcd.print("    ");
+    }
 
     #if ADHOC_SERIAL_UI
+        // AD-HOC SERIAL USER INTERFACE
         // in lieu of or in addtion to implementing buttons
 
         if (Serial.available())
@@ -203,32 +247,13 @@ void bpUI::run()
                 // 0 = cancel
                 // 9 = suppress
 
-                if (c == '1' || c == '2' || c == '3')
-                {
-                    c -= '1';
-                    u8 mode = 1 << c;
-                    test_setAlarm(mode);
-                }
-                else if (c == '9')
-                {
-                    suppressAlarm();
-                }
-                else if (c == '0')      // also 'clear state'
+                if (c == '0')      // also 'clear state' (but keep statistics)
                 {
                     cancelAlarm();
+                    backlightOn();      // to set timer if needed
+
                 }
-
-
-                else if (c == 'l')
-                {
-                    m_backlight_on = m_backlight_on ? 0 : 1;
-                    if (m_backlight_on)
-                        lcd.backlight();
-                    else
-                        lcd.noBacklight();
-                }
-
-                else if (c == 'r')
+                else if (c == 'r')      // get rid of stats too, but keep eeprom
                 {
                     display(0,"adhoc ui reset",0);
                     cancelAlarm();
@@ -242,25 +267,45 @@ void bpUI::run()
                     bp.factoryReset();
                     setup();
                 }
+                else if (c == 'l')
+                {
+                    m_backlight_on = m_backlight_on ? 0 : 1;
+                    if (m_backlight_on)
+                        backlightOn();
+                    else
+                        lcd.noBacklight();
+                }
+
+                // test only
+
+                else  if (c == '1' || c == '2' || c == '3')
+                {
+                    c -= '1';
+                    u8 mode = 1 << c;
+                    test_setAlarm(mode);
+                }
+                else if (c == '9')
+                {
+                    suppressAlarm();
+                }
                 else if (c == 'h')
                 {
-                    display(0,"adhoc ui bump hour",0);
+                    display(0,"test ui bump hour",0);
                     bp.test_setHour(bp.getHour()+1);
                 }
                 else if (c == 'd')
                 {
-                    display(0,"adhoc ui bump day",0);
+                    display(0,"test ui bump day",0);
                     bp.test_setHour(bp.getHour()+24);
                 }
                 else if (c == 'w')
                 {
-                    display(0,"adhoc ui bump week",0);
+                    display(0,"test ui bump week",0);
                     bp.test_setHour(bp.getHour()+7*24);
                 }
-
                 if (c == 's' || c == 'h' || c == 'd' || c == 'w')
                 {
-                    display(0,"adhoc ui STATSTICS",0);
+                    display(0,"test ui STATSTICS",0);
                     display(0,"  hour(%d) seconds: %d",bp.getHour(),bp.getTime());
                     display(0,"  state(%S=0x%02x) alarm_state(%S=0x%02x)",
                         stateName(bp.getState()),
