@@ -152,7 +152,7 @@ void bpUI::backlightOn()
 bool bpUI::onButton(int i, u8 event_type)
     // called from bpButtons::run()
 {
-    display(dbg_ui,"bpUI::onButton(%d,%d)",event_type);
+    display(dbg_ui,"bpUI::onButton(%d,%d)",i,event_type);
 
 
     // eat the keystroke
@@ -321,22 +321,22 @@ void bpUI::run()
                 else if (c == 'h')
                 {
                     display(0,"test ui bump hour",0);
-                    bp.test_setHour(bp.getHour()+1);
+                    setTime(bp.getTime() + ((time_t)3600));
                 }
                 else if (c == 'd')
                 {
                     display(0,"test ui bump day",0);
-                    bp.test_setHour(bp.getHour()+24);
+                    setTime(bp.getTime() + ((time_t)24*3600));
                 }
                 else if (c == 'w')
                 {
                     display(0,"test ui bump week",0);
-                    bp.test_setHour(bp.getHour()+7*24);
+                    setTime(bp.getTime() + ((time_t)7*24*3600));
                 }
                 if (c == 's' || c == 'h' || c == 'd' || c == 'w')
                 {
                     display(0,"test ui STATSTICS",0);
-                    display(0,"  hour(%d) seconds: %d",bp.getHour(),bp.getTime());
+                    display(0,"  hour(%d) seconds: %ld",bp.getHour(),bp.getTime());
                     display(0,"  state(%S=0x%02x) alarm_state(%S=0x%02x)",
                         stateName(bp.getState()),
                         bp.getState(),

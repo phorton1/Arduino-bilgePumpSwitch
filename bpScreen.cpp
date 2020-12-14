@@ -165,6 +165,7 @@ void bpScreen::setScreen(int screen_num)
                 time_t since = bp.getSince();
                 int hours_since = since / 3600;
                 int mins_since = (since % 3600) / 60;
+                if (hours_since > 999) hours_since = 999;
                 sprintf(buf,"%02d:%02d",hours_since,mins_since);
             }
 

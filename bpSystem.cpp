@@ -194,22 +194,21 @@ void bpSystem::test_setAlarm(u8 alarm_mode)
 
 void bpSystem::getCounts(int *hour_count, int *day_count, int *week_count, int *total_count)
 {
-    *hour_count = m_hour_counts[m_hour];
+    int use_hour = m_hour % MAX_HOURS;
+    int use_total_hours = m_hour >= MAX_HOURS ? MAX_HOURS : m_hour + 1;
 
     *day_count = 0;
     *week_count = 0;
     *total_count = 0;
-
-    int use_total_hours = m_hour >= MAX_HOURS ? MAX_HOURS : m_hour + 1;
-    int use_hour = m_hour % MAX_HOURS;
+    *hour_count = m_hour_counts[use_hour];
 
     for (int i=0; i<use_total_hours; i++)
     {
         if (i < DAY_HOURS) *day_count += m_hour_counts[use_hour];
-         if (i < WEEK_HOURS) *week_count += m_hour_counts[use_hour];
+        if (i < WEEK_HOURS) *week_count += m_hour_counts[use_hour];
         *total_count += m_hour_counts[use_hour];
         use_hour--;
-        if (use_hour < 0) use_hour = MAX_HOURS;
+        if (use_hour < 0) use_hour = MAX_HOURS-1;
     }
 
     // constrain to 3 digits for display
@@ -219,6 +218,7 @@ void bpSystem::getCounts(int *hour_count, int *day_count, int *week_count, int *
     if (*week_count > 999) *week_count = 999;
     if (*total_count > 999) *total_count = 999;
 }
+
 
 
 
@@ -306,8 +306,7 @@ void bpSystem::loop()
     {
         digitalWrite(PIN_ONBOARD_LED,m_time & 1);
         m_time = the_time;
-        if (m_time % 3600 == 0)
-            m_hour++;
+        m_hour = (m_time / ((time_t)3600));
     }
 
     // PRIMARY PUMP
