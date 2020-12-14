@@ -211,7 +211,10 @@ of the User Interface to follow.
 
 ### Preferences
 
-
+- PREF_DISABLED     enabled/disabled, default: enabled -
+    Disables the sensors from couting or triggering alarms.
+    This can be used while working in the bilge and you need to
+    repeatedly trigger the bilge pumps manually.
 - PREF_ERROR_RUN_TIME          default 10    seconds
     the amount of time, from 0..255, that the primary pump may run, in seconds,
     before generating an error state (chirps). 0 disables the function

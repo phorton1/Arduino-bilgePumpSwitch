@@ -2,6 +2,8 @@
 #include "myDebug.h"
 #include "bpSystem.h"
 #include "bpUI.h"
+#include "bpPrefs.h"
+
 
 #define dbg_sys   0
 
@@ -14,13 +16,6 @@
 #define PIN_ONBOARD_LED     13
     // see bpUI.cpp for other pin assignments
 
-#define PREF_ERROR_RUN_TIME          10         // secs
-#define PREF_CRITICAL_RUN_TIME       30         // secs
-#define PREF_ERROR_RUNS_PER_HOUR     3
-#define PREF_ERROR_RUNS_PER_DAY      12
-#define PREF_EXTRA_PRIMARY_TIME      5          // secs
-#define PREF_EXTRA_PRIMARY_MODE      0          // start, end, if primary_time
-#define PREF_END_PUMP_RELAY_DELAY    2          // secs if mode=='end' and time != 0
 
 
 #define BILGE_SWITCH_DEBOUNCE_TIME  300     // ms
@@ -65,6 +60,8 @@ void bpSystem::setup()
     digitalWrite(PIN_RELAY,0);
     digitalWrite(PIN_ONBOARD_LED,0);
 
+    initPrefs();
+
     bpui.setup();
 
     display(0,"bpSystem started ...",0);
@@ -104,6 +101,7 @@ void bpSystem::reset()
 {
     display(0,"reset()",0);
     init();
+    setTime(0);
 }
 
 
@@ -201,7 +199,11 @@ void bpSystem::factoryReset()
     // re-initialize EEPROM and call setup()
 {
     display(0,"factoryReset()",0);
+    resetPrefs();
+    initPrefs();
+    reset();
 }
+
 
 //-----------------------------------------------------------
 // IMPLEMENTATION
@@ -279,7 +281,8 @@ void bpSystem::loop()
     // check for state change of primary bilge switch with debouncing
 
     uint32_t now_millis = millis();
-    if (!(m_state & STATE_RELAY_ON) &&
+    if (!getPref(PREF_DISABLED) &&
+        !(m_state & STATE_RELAY_ON) &&
        (!m_time1_millis || now_millis >= m_time1_millis + BILGE_SWITCH_DEBOUNCE_TIME))
     {
         int value = analogRead(PIN_SENSE1);
@@ -297,7 +300,8 @@ void bpSystem::loop()
             {
                 setState(STATE_PUMP_ON);
 
-                if (PREF_EXTRA_PRIMARY_TIME && PREF_EXTRA_PRIMARY_MODE == 0)
+                if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
+                    getPref(PREF_EXTRA_PRIMARY_MODE) == 0)
                 {
                     setRelay(1);
                     m_relay_time = m_time;
@@ -310,9 +314,9 @@ void bpSystem::loop()
 
                 // check on state for too-often per hour error
 
-                if (PREF_ERROR_RUNS_PER_HOUR &&
+                if (getPref(PREF_ERROR_RUNS_PER_HOUR) &&
                     !(m_state & STATE_TOO_OFTEN_HOUR) &&
-                    m_hour_counts[m_hour] > PREF_ERROR_RUNS_PER_HOUR)
+                    m_hour_counts[m_hour] > getPref(PREF_ERROR_RUNS_PER_HOUR))
                 {
                     setState(STATE_TOO_OFTEN_HOUR);
                     setAlarmState(ALARM_STATE_ERROR);
@@ -321,7 +325,8 @@ void bpSystem::loop()
                 // check on state for too-often per day error
                 // calculate the count for the last 24 hours
 
-                if (PREF_ERROR_RUNS_PER_DAY && !(m_state & STATE_TOO_OFTEN_DAY))
+                if (getPref(PREF_ERROR_RUNS_PER_DAY) &&
+                    !(m_state & STATE_TOO_OFTEN_DAY))
                 {
                     int use_day_hours = m_hour > 24 ? 24 : m_hour + 1;
                     int day_count = 0;
@@ -331,7 +336,7 @@ void bpSystem::loop()
                         if (use_hour < 0) use_hour = MAX_HOURS;
                     }
 
-                    if (day_count > PREF_ERROR_RUNS_PER_DAY)
+                    if (day_count > getPref(PREF_ERROR_RUNS_PER_DAY))
                     {
                         setState(STATE_TOO_OFTEN_DAY);
                         setAlarmState(ALARM_STATE_ERROR);
@@ -355,7 +360,8 @@ void bpSystem::loop()
 
                 clearState(STATE_PUMP_ON);
                 display(dbg_sys,"duration=%d seconds",duration);
-                if (PREF_EXTRA_PRIMARY_TIME && PREF_EXTRA_PRIMARY_MODE == 1)
+                if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
+                    getPref(PREF_EXTRA_PRIMARY_MODE) == 1)
                 {
                     m_relay_delay = m_time;
                 }
@@ -367,16 +373,24 @@ void bpSystem::loop()
         // if this pump has run longer than the per run time preferences,
         // set the state alarm state as needed
 
-        if ((m_state & STATE_PUMP_ON) && duration > PREF_ERROR_RUN_TIME)
+        if ((m_state & STATE_PUMP_ON) &&
+            getPref(PREF_ERROR_RUN_TIME) &&
+            duration > getPref(PREF_ERROR_RUN_TIME))
         {
-            if (!(m_state & STATE_TOO_LONG))
-                setState(STATE_TOO_LONG);
-            if (!(m_alarm_state & ALARM_STATE_ERROR))
-                setAlarmState(ALARM_STATE_ERROR);
-            if (!(m_alarm_state & ALARM_STATE_CRITICAL) && duration > PREF_CRITICAL_RUN_TIME)
-                setAlarmState(ALARM_STATE_CRITICAL);
+            setState(STATE_TOO_LONG);
+            setAlarmState(ALARM_STATE_ERROR);
         }
-    }
+
+        if ((m_state & STATE_PUMP_ON) &&
+            getPref(PREF_CRITICAL_RUN_TIME) &&
+            duration > getPref(PREF_CRITICAL_RUN_TIME))
+        {
+            setState(STATE_TOO_LONG);
+            setAlarmState(ALARM_STATE_CRITICAL);
+        }
+
+    }   // not disabled && relay off && and switch debounced
+
 
     // EMERGENCY PUMP
     // If this comes on, plain and simple, it is ocnsidered an emergency.
@@ -385,7 +399,8 @@ void bpSystem::loop()
     // blaring sound).
 
     now_millis = millis();
-    if (!m_time2_millis || now_millis >= m_time2_millis + BILGE_SWITCH_DEBOUNCE_TIME)
+    if (!getPref(PREF_DISABLED) &&
+        (!m_time2_millis || now_millis >= m_time2_millis + BILGE_SWITCH_DEBOUNCE_TIME))
     {
         int value = analogRead(PIN_SENSE2);
         u8 on = value > PUMP_SENSE_THRESHOLD ? 1 : 0;
@@ -410,11 +425,11 @@ void bpSystem::loop()
 
     // TIMER TURN OFFS
 
-    if (PREF_EXTRA_PRIMARY_TIME)
+    if (getPref(PREF_EXTRA_PRIMARY_TIME))
     {
         if (m_relay_time)
         {
-            if (m_time > m_relay_time + PREF_EXTRA_PRIMARY_TIME)
+            if (m_time > m_relay_time + getPref(PREF_EXTRA_PRIMARY_TIME))
             {
                 setRelay(0);
                 m_relay_time = 0;
@@ -422,7 +437,7 @@ void bpSystem::loop()
         }
         else if (m_relay_delay)
         {
-            if (m_time > m_relay_delay + PREF_END_PUMP_RELAY_DELAY)
+            if (m_time > m_relay_delay + getPref(PREF_END_PUMP_RELAY_DELAY))
             {
                 m_relay_delay = 0;
                 m_relay_time = m_time;

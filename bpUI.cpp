@@ -16,7 +16,7 @@
 #define PIN_PUMP1_LED        2
     // see bpButtons.cpp for button pin definitions
 
-#define ALARM_REPEAT_TIME    10000
+#define ALARM_REPEAT_TIME    8000
 
 
 bpUI bpui;
@@ -142,6 +142,8 @@ void bpUI::onButton(int i)
     // called from bpButtons::run()
 {
     display(dbg_ui,"bpUI::onButton(%d)",i);
+    if (m_ui_alarm_state && !(m_ui_alarm_state & ALARM_STATE_SUPPRESSED))
+        suppressAlarm();
 }
 
 
@@ -231,6 +233,14 @@ void bpUI::run()
                     display(0,"adhoc ui reset",0);
                     cancelAlarm();
                     bp.reset();
+                    setup();
+                }
+                else if (c == 'f')
+                {
+                    display(0,"adhoc ui factoryReset",0);
+                    cancelAlarm();
+                    bp.factoryReset();
+                    setup();
                 }
                 else if (c == 'h')
                 {
