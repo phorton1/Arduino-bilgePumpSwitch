@@ -3,10 +3,6 @@
 
 #include "bpSystem.h"
 
-#define BUTTON_TYPE_PRESS           1
-#define BUTTON_TYPE_CLICK           2
-#define BUTTON_TYPE_LONG_CLICK      3
-
 
 class bpUI
 {
@@ -22,6 +18,7 @@ class bpUI
             // returns true if the BUTTON_TYPE_PRESS was handled
             // return value ignored otherwise ..
 
+        void selfTest();
         void setMenuTimeout()   { m_menu_timeout = millis(); }
 
     private:
@@ -34,7 +31,6 @@ class bpUI
         uint32_t m_menu_timeout;
 
         void init();
-        void selfTest();
         void suppressAlarm();
         void cancelAlarm();
         void handleAlarms();

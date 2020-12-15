@@ -252,6 +252,8 @@ the *right button*.
 than 1.5 seconds will enter *Configuration Mode*.  While in configuration
 mode the *left button* will cycle through a list of configuratio options,
 and the *middle and right* buttons will change the values.
+Configuration mode is indicated by an asterisk '*' in the
+upper right corner of the screen.
 
 When finished with configuration mode, **long pressing the left button
 again** will exit Configuration mode and return to the MAIN STATISTICS

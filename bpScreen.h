@@ -16,61 +16,29 @@
 
 #define SCREEN_INIT            0
 #define SCREEN_SPLASH          1
+
 #define SCREEN_MAIN_ERROR      2
 #define SCREEN_PRESS_TO_QUIET  3
 #define SCREEN_PRESS_TO_CANCEL 4
 #define SCREEN_ALARM_CANCELED  5
+
 #define SCREEN_MAIN_STATS      6
 #define SCREEN_WEEK_STATS      7
 #define SCREEN_STATS_10        8
 #define SCREEN_STATS_50        9
 
+#define SCREEN_RELAY          10
+#define SCREEN_SELFTEST       11
+#define SCREEN_RESET          12
+#define SCREEN_FACTORY_RESET  13
+#define SCREEN_CONFIRM        14
+
+#define SCREEN_PREF_BASE      15
 
 
-#define SCREEN_TOTAL_STATS     3
-    //HOUR ### DAY ###//WEEK ### TOT ###//
-#define SCREEN_PREV_STATS      4
-    //PREV DAY     ###//DAY BEFORE   ###//
-// oonfiguration options
-// enabled is mem-oly
-#define SCREEN_ALARM_DISABLED  5
-    //ALARM           //        ssssssss//      ' ENABLED' | 'DISABLED'
-#define SCREEN_BACKLIGHT       6
-    //BACKLIGHT       //TIMEOUT      ###//
-#define SCREEN_EXTRA_TIME      7
-    //EXTRA PRIMARY   //TIME         ###//
-#define SCREEN_EXTRA_MODE      8
-    //EXTRA PRIMARY   //MODE       sssss//      'start' | '  end'
-#define SCREEN_ERROR_TIME      9
-    //ERROR RUN TIME  //             ###//
-#define SCREEN_CRITICAL_TIME  10
-    //CRITICAL RUN    //TIME         ###//
-#define SCREEN_ERROR_PER_HOUR 11
-    //ERROR RUNS PER  //HOUR         ###//
-#define SCREEN_ERROR_PER_DAY  12
-    //ERROR RUNS PER  //DAY          ###//
-#define SCREEN_ON_EMERGENCY   13
-    //PRIMARY ON      //EMERGENCY    sss//      'OFF' | ' ON'
-
-// commands
-
-#define SCREEN_PRIMARY_ONOFF  14
-    //PRIMARY PUMP    //             sss//      'OFF' | ' ON'
-#define SCREEN_RESET          15
-    //PRESS + TO RESET//                //      - goes back to main screen if selected
-#define SCREEN_FACTORY_RESET  16
-    //PRESS + FOR     //FACTORY RESET   //      - brings up 'modal' confirm screen if selected
-
-// skipped over in rotation (dialog)
-
-#define SCREEN_CONFIRM_FACTORY_RESET   17
-    //PRESS + CONFIRM //FACTORY//RESET  //
-
-
-
-#define NUM_SCREENS   21
-
-
+#define MENU_MODE_STATS       0     // default, normal statistics screens
+#define MENU_MODE_COMMAND     1     // command mode
+#define MENU_MODE_CONFIG      2     // preferences screens
 
 
 class bpScreen
@@ -83,6 +51,7 @@ class bpScreen
             // config options change.
 
         int getScreenNum()  { return m_screen_num; }
+        int getMenuMode()   { return m_menu_mode; }
 
         void setScreen(int screen_num);
             // The system only directly sets the MAIN_SCREEN,
@@ -98,10 +67,11 @@ class bpScreen
     private:
 
         int m_screen_num;
+        int m_menu_mode;
+        int m_prev_screen;
         time_t m_last_time;
         time_t m_last_bp_time;
-
-        u8  m_last_pref[NUM_PREFS];
+        int m_last_pref_value;
 
         void print_lcd(int lcd_line, int screen_line, ...);
 

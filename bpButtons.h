@@ -1,6 +1,11 @@
 #ifndef __bpButtons_h__
 #define __bpButtons_h__
 
+#define BUTTON_TYPE_PRESS           1
+#define BUTTON_TYPE_REPEAT          2
+#define BUTTON_TYPE_CLICK           3
+#define BUTTON_TYPE_LONG_CLICK      4
+
 
 class bpButtons
 {

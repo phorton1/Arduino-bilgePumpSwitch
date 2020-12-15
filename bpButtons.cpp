@@ -6,7 +6,7 @@
 // buttons 1 and 2 implement long press auto-increment
 
 
-#define dbg_buttons  1
+#define dbg_buttons  0
 
 
 #define PIN_BUTTON0          8
@@ -95,7 +95,7 @@ void bpButtons::run()
                         if (m_repeat_count % dif == 0)
                         {
                             display(dbg_buttons,"BUTTON_REPEAT(%d)",i);
-                            bpui.onButton(i,BUTTON_TYPE_PRESS);
+                            bpui.onButton(i,BUTTON_TYPE_REPEAT);
                         }
 
                         m_repeat_count++;

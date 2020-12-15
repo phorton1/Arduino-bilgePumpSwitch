@@ -2,9 +2,10 @@
 #include "bpScreen.h"
 #include "bpUI.h"
 #include "bpSystem.h"
+#include "bpButtons.h"
 #include <LiquidCrystal_I2C.h>
 
-#define dbg_scr   1
+#define dbg_scr   0
 
 
 #define LCD_LINE_LEN              16
@@ -18,14 +19,8 @@
 #define ALARM_CANCELLED_DURATION 4
     // keep the stats screen on a little longer
 
-typedef struct
-{
-    u8 pref_num;
-    u8 pref_high;
-    u8 pref_string_type;
-} screenDescriptor_t;
 
-// phrases and names - first 20 are official phrases
+// SCREENS
 
 const char s000[] PROGMEM =  "bpSwitch  v%S";
 const char s001[] PROGMEM =  "inititalizing ...";
@@ -57,6 +52,57 @@ const char s081[] PROGMEM =  " MIN %-3d MAX %-3d";
 const char s090[] PROGMEM =  "LAST %-2d  AVG %-3d";
 const char s091[] PROGMEM =  " MIN %-3d MAX %-3d";
 
+// commands
+
+const char s100[] PROGMEM =  "PRIMARY PUMP ";
+const char s101[] PROGMEM =  "RELAY        %-3S";
+
+const char s110[] PROGMEM =  "SELF TEST";
+const char s111[] PROGMEM =  "         PERFORM";
+
+const char s120[] PROGMEM =  "RESET STATISTICS";
+const char s121[] PROGMEM =  "         PERFORM";
+
+const char s130[] PROGMEM =  "FARCTORY RESET";
+const char s131[] PROGMEM =  "         PERFORM";
+
+const char s140[] PROGMEM =  "CONFIRM";
+const char s141[] PROGMEM =  "%S";
+
+// prefs (1 based from disabled)
+
+const char s150[] PROGMEM =  "ALARM DISABLE  *";
+const char s151[] PROGMEM =  "        %8S";
+
+const char s160[] PROGMEM =  "BACKLIGHT      *";
+const char s161[] PROGMEM =  "TIMEOUT      %-3s";
+
+const char s170[] PROGMEM =  "TO0 LONG ERROR *";
+const char s171[] PROGMEM =  "TIME         %-3s";
+
+const char s180[] PROGMEM =  "WAY TOO LONG   *";
+const char s181[] PROGMEM =  "ERROR TIME   %-3s";
+
+const char s190[] PROGMEM =  "TOO MANY PER   *";
+const char s191[] PROGMEM =  "HOUR NUM     %-3s";
+
+const char s200[] PROGMEM =  "TOO MANY PER   *";
+const char s201[] PROGMEM =  "DAY NUM      %-3s";
+
+const char s210[] PROGMEM =  "EXTRA PRIMARY  *";
+const char s211[] PROGMEM =  "TIME         %-3s";
+
+const char s220[] PROGMEM =  "EXTRA PRIMARY  *";
+const char s221[] PROGMEM =  "MODE       %5S";
+
+const char s230[] PROGMEM =  "EXTRA END MODE *";
+const char s231[] PROGMEM =  "DELAY        %-3s";
+
+const char s240[] PROGMEM =  "PRIMARY ON     *";
+const char s241[] PROGMEM =  "EMERGENCY    %-3s";
+
+
+// GLOBAL VARIABLES
 
 const char* const screen_lines[] PROGMEM = {
     s000,s001,
@@ -68,7 +114,22 @@ const char* const screen_lines[] PROGMEM = {
     s060,s061,
     s070,s071,
     s080,s081,
-    s090,s091 };
+    s090,s091,
+    s100,s101,
+    s110,s111,
+    s120,s121,
+    s130,s131,
+    s140,s141,
+    s150,s151,
+    s160,s161,
+    s170,s171,
+    s180,s181,
+    s190,s191,
+    s200,s201,
+    s210,s211,
+    s220,s221,
+    s230,s231,
+    s240,s241 };
 
 
 extern LiquidCrystal_I2C lcd;
@@ -76,6 +137,61 @@ extern LiquidCrystal_I2C lcd;
 
 bpScreen bp_screen;
 
+char screen_num_buf[4];
+
+
+//-----------------------------------
+// implementation
+//-----------------------------------
+
+const char *off_secs(int i)
+{
+    if (i<0) i=0;
+    if (i>255) i=255;
+    if (i)
+        sprintf(screen_num_buf,"%3d",i);
+    else
+        strcpy_P(screen_num_buf,PSTR("off"));
+    return screen_num_buf;
+}
+
+const char *enabled_disabled(int i)
+{
+    return i ?
+        PSTR("disabled") :
+        PSTR("enabled");
+}
+
+const char *start_end(int i)
+{
+    return i ?
+        PSTR("end") :
+        PSTR("start");
+}
+
+const char *off_on(int i)
+{
+    return i ?
+        PSTR("on") :
+        PSTR("off");
+}
+
+const char *getPrefValueString(int pref_num,int pref_value)
+{
+    const char *ts;
+    if (pref_num == PREF_DISABLED)
+        ts = enabled_disabled(pref_value);
+    else if (pref_num == PREF_EXTRA_PRIMARY_MODE)
+        ts = start_end(pref_value);
+    else if (pref_num == PREF_END_PUMP_RELAY_DELAY)
+    {
+        sprintf(screen_num_buf,"%3d",pref_value);
+        ts = screen_num_buf;
+    }
+    else
+        ts = off_secs(pref_value);
+    return  ts;
+}
 
 
 void bpScreen::setup()
@@ -83,10 +199,9 @@ void bpScreen::setup()
     // config options change.
 {
     m_screen_num = -1;
+    m_menu_mode = 0;
+    m_prev_screen = 0;
     m_last_bp_time = 0;
-
-    for (int i=0; i<NUM_PREFS; i++)
-        m_last_pref[i] = 255;
 
     setScreen(SCREEN_INIT);
 }
@@ -122,9 +237,19 @@ void bpScreen::setScreen(int screen_num)
 
     if (m_screen_num != screen_num)
     {
+        m_prev_screen = m_screen_num;
         display(dbg_scr,"setScreen(%d)",screen_num);
         m_last_time = bp.getTime();
         m_screen_num = screen_num;
+
+        if (m_screen_num >= SCREEN_PREF_BASE)
+            m_menu_mode = MENU_MODE_CONFIG;
+
+        else if (m_screen_num >= SCREEN_RELAY &&
+                 m_screen_num <= SCREEN_CONFIRM)
+            m_menu_mode = MENU_MODE_COMMAND;
+        else
+            m_menu_mode = MENU_MODE_STATS;
     }
 
     int n0 = m_screen_num * 2;
@@ -138,6 +263,11 @@ void bpScreen::setScreen(int screen_num)
             print_lcd(1,n1);
             break;
 
+        // screens with no params
+
+        case SCREEN_SELFTEST:
+        case SCREEN_RESET:
+        case SCREEN_FACTORY_RESET:
         case SCREEN_ALARM_CANCELED:
         case SCREEN_PRESS_TO_CANCEL:
         case SCREEN_PRESS_TO_QUIET:
@@ -165,7 +295,9 @@ void bpScreen::setScreen(int screen_num)
 
             char buf[8];
             if (state & STATE_RELAY_EMERGENCY)
-                strcpy_P(buf,PSTR("RELAY!"));
+                strcpy_P(buf,PSTR("ERELAY!"));
+            else if (state & STATE_EMERGENCY_PUMP_ON)
+                strcpy_P(buf,PSTR("EMERG!!"));
             else if (state & STATE_RELAY_FORCE_ON)
                 strcpy_P(buf,PSTR("FORCE"));
             else if (state & STATE_RELAY_ON)
@@ -213,6 +345,33 @@ void bpScreen::setScreen(int screen_num)
                 print_lcd(0,n0,num_runs,avg50);
                 print_lcd(1,n1,min50,max50);
             }
+            break;
+        }
+
+        // COMMANDS
+
+        case SCREEN_RELAY:
+            print_lcd(0,n0);
+            print_lcd(1,n1,off_on(bp.getState() & STATE_RELAY_FORCE_ON));
+            break;
+
+        case SCREEN_CONFIRM:
+        {
+            int prev_line = m_prev_screen * 2;
+            const char *prev_string = (char*)pgm_read_word(&(screen_lines[prev_line]));
+            print_lcd(0,n0);
+            print_lcd(1,n1,prev_string);
+            break;
+        }
+
+        // PREFS
+
+        default:
+        {
+            int pref_num = m_screen_num - SCREEN_PREF_BASE + 1;
+            int pref_value = getPref(pref_num);
+            print_lcd(0,n0);
+            print_lcd(1,n1,getPrefValueString(pref_num,pref_value));
             break;
         }
 
@@ -306,30 +465,162 @@ bool bpScreen::onButton(int button_num, u8 event_type)
     // arriving here in bpUI::onBotton()
 
     display(dbg_scr,"bpScreen::onButton(%d,%d)",button_num,event_type);
-    if (button_num == 2)
+
+    if (m_menu_mode == MENU_MODE_STATS)
     {
-    // I assume that certainly durations will not overflow a 15 bit integer
-    // returns the number of runs that were actually used ...
+        if (button_num == 0)
+        {
+            if (event_type == BUTTON_TYPE_LONG_CLICK)
+            {
+                setScreen(SCREEN_PREF_BASE);
+                return true;
+            }
+            else if (event_type == BUTTON_TYPE_CLICK)
+            {
+                setScreen(SCREEN_RELAY);
+                return true;
+            }
+        }
+        else if (button_num == 2)
+        {
+            int num_runs = 0;
+            int min10 = 0;
+            int max10 = 0;
+            int avg10 = 0;
+            int min50 = 0;
+            int max50 = 0;
+            int avg50 = 0;
+            bp.getStatistics(&num_runs,&min10,&max10,&avg10,&min50,&max50,&avg50);
 
-        int num_runs = 0;
-        int min10 = 0;
-        int max10 = 0;
-        int avg10 = 0;
-        int min50 = 0;
-        int max50 = 0;
-        int avg50 = 0;
-        bp.getStatistics(&num_runs,&min10,&max10,&avg10,&min50,&max50,&avg50);
+            int last_stat_screen =
+                num_runs > 10 ? SCREEN_STATS_50 :
+                num_runs ? SCREEN_STATS_10 :
+                SCREEN_WEEK_STATS;
 
-        int last_stat_screen =
-            num_runs > 10 ? SCREEN_STATS_50 :
-            num_runs ? SCREEN_STATS_10 :
-            SCREEN_WEEK_STATS;
-
-        int new_screen_num = m_screen_num + 1;
-        if (new_screen_num > last_stat_screen)
-            new_screen_num = SCREEN_MAIN_STATS;
-        setScreen(new_screen_num);
-        return true;
+            int new_screen_num = m_screen_num + 1;
+            if (new_screen_num > last_stat_screen)
+                new_screen_num = SCREEN_MAIN_STATS;
+            setScreen(new_screen_num);
+            return true;
+        }
     }
+
+    // COMMANDS
+
+    else if (m_menu_mode == MENU_MODE_COMMAND)
+    {
+        if (button_num == 0)
+        {
+            if (event_type == BUTTON_TYPE_LONG_CLICK)
+            {
+                setScreen(SCREEN_PREF_BASE);
+                return true;
+            }
+            else if (event_type == BUTTON_TYPE_CLICK)
+            {
+                if (m_screen_num == SCREEN_FACTORY_RESET)
+                    setScreen(SCREEN_MAIN_STATS);
+                else
+                    setScreen(m_screen_num+1);
+                return true;
+            }
+        }
+        else if (button_num == 2)
+        {
+            switch (m_screen_num)
+            {
+                case SCREEN_RELAY:
+                    bp.forceRelay(!(bp.getState() & STATE_RELAY_FORCE_ON));
+                    setScreen(m_screen_num);
+                    break;
+                case SCREEN_SELFTEST:
+                    bpui.selfTest();
+                    break;
+                case SCREEN_FACTORY_RESET:
+                case SCREEN_RESET:
+                    setScreen(SCREEN_CONFIRM);
+                    break;
+                case SCREEN_CONFIRM:
+                    if (m_prev_screen == SCREEN_FACTORY_RESET)
+                        bp.factoryReset();
+                    else if (m_prev_screen == SCREEN_RESET)
+                        bp.reset();
+                    setScreen(SCREEN_MAIN_STATS);
+                    break;
+            }
+            return true;
+        }
+        else if (button_num == 1)
+        {
+            if (m_screen_num == SCREEN_CONFIRM)
+                setScreen(m_prev_screen);
+        }
+    }
+
+    // CONFIG
+
+    else  if (m_menu_mode == MENU_MODE_CONFIG)
+    {
+        if (button_num == 0)
+        {
+            if (event_type == BUTTON_TYPE_LONG_CLICK)
+            {
+                setScreen(SCREEN_MAIN_STATS);
+                return true;
+            }
+            else if (event_type == BUTTON_TYPE_CLICK)
+            {
+                if (m_screen_num == SCREEN_PREF_BASE + NUM_PREFS - 2)
+                    setScreen(SCREEN_PREF_BASE);
+                else
+                    setScreen(m_screen_num+1);
+                return true;
+            }
+        }
+
+        // handle pref modifications with repeat and release events
+        // always returns false
+
+        else
+        {
+            int pref_num = m_screen_num - SCREEN_PREF_BASE + 1;
+            if (event_type == BUTTON_TYPE_PRESS)
+                m_last_pref_value = getPref(pref_num);
+
+            // set the pref upon release
+            // otherwise inc or dec
+
+            if (event_type == BUTTON_TYPE_CLICK)
+                setPref(pref_num,m_last_pref_value);
+            else
+            {
+                int inc = (button_num == 1) ? -1 : 1;
+                int pref_max = getPrefMax(pref_num);
+                m_last_pref_value += inc;
+
+                // constrain backlight to 0,30..255
+                // to prevent pesky behavior
+
+                if (pref_num == PREF_BACKLIGHT_SECS)
+                {
+                    if (inc<0 && m_last_pref_value == 29)
+                        m_last_pref_value = 0;
+                    if (inc>0 && m_last_pref_value == 1)
+                        m_last_pref_value = 30;
+                }
+
+
+                if (m_last_pref_value < 0)
+                    m_last_pref_value = 0;
+                if (m_last_pref_value > pref_max)
+                    m_last_pref_value = pref_max;
+
+            }
+
+            int n1 = m_screen_num * 2 + 1;
+            print_lcd(1,n1,getPrefValueString(pref_num,m_last_pref_value));
+        }
+    }
+
     return false;
 }

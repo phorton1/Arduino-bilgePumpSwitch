@@ -11,7 +11,7 @@ u8 pref_cache[NUM_PREFS];
     // change this to cause next reboot to reset preferences
     // just don't make it 255 (255 == eeprom not initialized)!
 
-#define PREF_DEFAULT_DISABLED                0
+#define PREF_DEFAULT_DISABLED                0          // enabled,disabled
 #define PREF_DEFAULT_BACKLIGHT_SECS          0          // off,secs
 #define PREF_DEFAULT_ERROR_RUN_TIME          10         // off,secs
 #define PREF_DEFAULT_CRITICAL_RUN_TIME       30         // off,secs
@@ -45,16 +45,20 @@ u8 getPref(int pref_num)
     return pref_cache[pref_num];
 }
 
+int getPrefMax(int pref_num)
+{
+    int pref_max = 255;
+    if (pref_num == PREF_DISABLED ||
+        pref_num == PREF_EXTRA_PRIMARY_MODE)
+        pref_max = 1;
+    return pref_max;
+}
+
 void setPref(int pref_num, u8 value)
 {
     display(dbg_prefs,"writing %S=%d",prefName(pref_num),value);
     pref_cache[pref_num] = value;
-
-    // pref disabled is only valid in memory till next
-    // hard or factory reset ..
-
-    if (pref_num != PREF_DISABLED)
-        EEPROM.write(pref_num,value);
+    EEPROM.write(pref_num,value);
 }
 
 

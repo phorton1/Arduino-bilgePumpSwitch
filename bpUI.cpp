@@ -17,7 +17,7 @@
 #define PIN_PUMP1_LED        2
     // see bpButtons.cpp for button pin definitions
 
-#define MENU_TIMEOUT        12000
+#define MENU_TIMEOUT        16000
 #define ALARM_REPEAT_TIME    8000
 
 
@@ -228,6 +228,7 @@ void bpUI::run()
 
     if (m_backlight_on &&
         !m_ui_alarm_state &&
+        bp_screen.getMenuMode() == MENU_MODE_STATS &&
         getPref(PREF_BACKLIGHT_SECS) &&
         bp.getTime() > m_backlight_time + getPref(PREF_BACKLIGHT_SECS))
     {

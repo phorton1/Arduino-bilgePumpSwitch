@@ -326,8 +326,7 @@ void bpSystem::loop()
     // check for state change of primary bilge switch with debouncing
 
     uint32_t now_millis = millis();
-    if (!getPref(PREF_DISABLED) &&
-       (!m_time1_millis || now_millis >= m_time1_millis + BILGE_SWITCH_DEBOUNCE_TIME))
+    if (!m_time1_millis || now_millis >= m_time1_millis + BILGE_SWITCH_DEBOUNCE_TIME)
     {
         // We want to measure the duration, including the relay time
         // if the extra primary mode is set to START, but not if the
@@ -387,7 +386,8 @@ void bpSystem::loop()
 
                     // check on state for too-often per hour error
 
-                    if (getPref(PREF_ERROR_RUNS_PER_HOUR) &&
+                    if (!getPref(PREF_DISABLED) &&
+                        getPref(PREF_ERROR_RUNS_PER_HOUR) &&
                         !(m_state & STATE_TOO_OFTEN_HOUR) &&
                         m_hour_counts[m_hour] > getPref(PREF_ERROR_RUNS_PER_HOUR))
                     {
@@ -398,7 +398,8 @@ void bpSystem::loop()
                     // check on state for too-often per day error
                     // calculate the count for the last 24 hours
 
-                    if (getPref(PREF_ERROR_RUNS_PER_DAY) &&
+                    if (!getPref(PREF_DISABLED) &&
+                        getPref(PREF_ERROR_RUNS_PER_DAY) &&
                         !(m_state & STATE_TOO_OFTEN_DAY))
                     {
                         int use_day_hours = m_hour > 24 ? 24 : m_hour + 1;
@@ -440,25 +441,27 @@ void bpSystem::loop()
             // if this pump has run longer than the per run time preferences,
             // set the state alarm state as needed
 
-            if ((m_state & STATE_PUMP_ON) &&
-                getPref(PREF_ERROR_RUN_TIME) &&
-                !(m_state & STATE_TOO_LONG) &&
-                duration > getPref(PREF_ERROR_RUN_TIME))
+            if (!getPref(PREF_DISABLED) &&
+                (m_state & STATE_PUMP_ON))
             {
-                setState(STATE_TOO_LONG);
-                setAlarmState(ALARM_STATE_ERROR);
-            }
+                if (getPref(PREF_ERROR_RUN_TIME) &&
+                    !(m_state & STATE_TOO_LONG) &&
+                    duration > getPref(PREF_ERROR_RUN_TIME))
+                {
+                    setState(STATE_TOO_LONG);
+                    setAlarmState(ALARM_STATE_ERROR);
+                }
 
-            if ((m_state & STATE_PUMP_ON) &&
-                getPref(PREF_CRITICAL_RUN_TIME) &&
-                !(m_state & STATE_CRITICAL_TOO_LONG) &&
-                duration > getPref(PREF_CRITICAL_RUN_TIME))
-            {
-                setState(STATE_CRITICAL_TOO_LONG);
-                setAlarmState(ALARM_STATE_CRITICAL);
+                if (getPref(PREF_CRITICAL_RUN_TIME) &&
+                    !(m_state & STATE_CRITICAL_TOO_LONG) &&
+                    duration > getPref(PREF_CRITICAL_RUN_TIME))
+                {
+                    setState(STATE_CRITICAL_TOO_LONG);
+                    setAlarmState(ALARM_STATE_CRITICAL);
+                }
             }
-        }   // relay off
-    }   // not disabled && and switch debounced
+        }   // !disabled & the pump is on
+    }   // not switch debounced
 
 
     // EMERGENCY PUMP
@@ -468,8 +471,7 @@ void bpSystem::loop()
     // blaring sound).
 
     now_millis = millis();
-    if (!getPref(PREF_DISABLED) &&
-        (!m_time2_millis || now_millis >= m_time2_millis + BILGE_SWITCH_DEBOUNCE_TIME))
+    if (!m_time2_millis || now_millis >= m_time2_millis + BILGE_SWITCH_DEBOUNCE_TIME)
     {
         int value = analogRead(PIN_SENSE2);
         u8 on = value > PUMP_SENSE_THRESHOLD ? 1 : 0;
@@ -480,8 +482,10 @@ void bpSystem::loop()
             display(dbg_sys,"value2=%d",value);
             if (on)
             {
-                setState(STATE_EMERGENCY_PUMP_ON | STATE_EMERGENCY_PUMP_RUN);
-                setAlarmState(ALARM_STATE_EMERGENCY | ALARM_STATE_CRITICAL);
+                setState(STATE_EMERGENCY_PUMP_ON |
+                    (!getPref(PREF_DISABLED) ? STATE_EMERGENCY_PUMP_RUN : 0));
+                if (!getPref(PREF_DISABLED))
+                    setAlarmState(ALARM_STATE_EMERGENCY | ALARM_STATE_CRITICAL);
 
                 // the emergency overrides any force of relay
                 // or extra time that is currently in progrwess
