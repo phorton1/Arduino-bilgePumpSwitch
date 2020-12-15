@@ -51,6 +51,12 @@ const char s061[] PROGMEM =  "%-7s secs %-3d";
 const char s070[] PROGMEM =  "WEEK %-3d TOT %-3d";
 const char s071[] PROGMEM =  "%-7s secs %-3d";
 
+const char s080[] PROGMEM =  "LAST %-2d  AVG %-3d";
+const char s081[] PROGMEM =  " MIN %-3d MAX %-3d";
+
+const char s090[] PROGMEM =  "LAST %-2d  AVG %-3d";
+const char s091[] PROGMEM =  " MIN %-3d MAX %-3d";
+
 
 const char* const screen_lines[] PROGMEM = {
     s000,s001,
@@ -60,7 +66,9 @@ const char* const screen_lines[] PROGMEM = {
     s040,s041,
     s050,s051,
     s060,s061,
-    s070,s071 };
+    s070,s071,
+    s080,s081,
+    s090,s091 };
 
 
 extern LiquidCrystal_I2C lcd;
@@ -119,12 +127,6 @@ void bpScreen::setScreen(int screen_num)
         m_screen_num = screen_num;
     }
 
-    int hour_count = 0;
-    int day_count = 0;
-    int week_count = 0;
-    int total_count = 0;
-        // vars used by more than one screen
-
     int n0 = m_screen_num * 2;
     int n1 = m_screen_num * 2 + 1;
         // the line numbers for the screen
@@ -144,11 +146,21 @@ void bpScreen::setScreen(int screen_num)
             print_lcd(1,n1);
             break;
 
+        case SCREEN_MAIN_ERROR:
+            print_lcd(0,n0,alarmStateName(bp.getAlarmState()));
+            print_lcd(1,n1,stateName(bp.getState()));
+            break;
+
         case SCREEN_WEEK_STATS :
         case SCREEN_MAIN_STATS :
         {
             int state = bp.getState();
             time_t duration = bp.getPumpDuration();
+
+            int hour_count = 0;
+            int day_count = 0;
+            int week_count = 0;
+            int total_count = 0;
             bp.getCounts(&hour_count,&day_count,&week_count,&total_count);
 
             char buf[8];
@@ -178,10 +190,32 @@ void bpScreen::setScreen(int screen_num)
             break;
         }
 
-        case SCREEN_MAIN_ERROR:
-            print_lcd(0,n0,alarmStateName(bp.getAlarmState()));
-            print_lcd(1,n1,stateName(bp.getState()));
+        case SCREEN_STATS_10:
+        case SCREEN_STATS_50:
+        {
+            int num_runs = 0;
+            int min10 = 0;
+            int max10 = 0;
+            int avg10 = 0;
+            int min50 = 0;
+            int max50 = 0;
+            int avg50 = 0;
+            bp.getStatistics(&num_runs,&min10,&max10,&avg10,&min50,&max50,&avg50);
+
+            if (m_screen_num == SCREEN_STATS_10)
+            {
+                if (num_runs > 10) num_runs = 10;
+                print_lcd(0,n0,num_runs,avg10);
+                print_lcd(1,n1,min10,max10);
+            }
+            else
+            {
+                print_lcd(0,n0,num_runs,avg50);
+                print_lcd(1,n1,min50,max50);
+            }
             break;
+        }
+
     }
 }   // setScreen()
 
@@ -263,6 +297,8 @@ void bpScreen::run()
 
 
 
+
+
 bool bpScreen::onButton(int button_num, u8 event_type)
     // called from bpUI::onButton in normal processing
 {
@@ -272,8 +308,25 @@ bool bpScreen::onButton(int button_num, u8 event_type)
     display(dbg_scr,"bpScreen::onButton(%d,%d)",button_num,event_type);
     if (button_num == 2)
     {
+    // I assume that certainly durations will not overflow a 15 bit integer
+    // returns the number of runs that were actually used ...
+
+        int num_runs = 0;
+        int min10 = 0;
+        int max10 = 0;
+        int avg10 = 0;
+        int min50 = 0;
+        int max50 = 0;
+        int avg50 = 0;
+        bp.getStatistics(&num_runs,&min10,&max10,&avg10,&min50,&max50,&avg50);
+
+        int last_stat_screen =
+            num_runs > 10 ? SCREEN_STATS_50 :
+            num_runs ? SCREEN_STATS_10 :
+            SCREEN_WEEK_STATS;
+
         int new_screen_num = m_screen_num + 1;
-        if (new_screen_num > SCREEN_WEEK_STATS)
+        if (new_screen_num > last_stat_screen)
             new_screen_num = SCREEN_MAIN_STATS;
         setScreen(new_screen_num);
         return true;

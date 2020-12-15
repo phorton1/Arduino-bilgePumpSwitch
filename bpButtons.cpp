@@ -6,7 +6,7 @@
 // buttons 1 and 2 implement long press auto-increment
 
 
-#define dbg_buttons  0
+#define dbg_buttons  1
 
 
 #define PIN_BUTTON0          8

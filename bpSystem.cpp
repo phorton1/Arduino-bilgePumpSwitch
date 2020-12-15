@@ -6,7 +6,7 @@
 #include "bpScreen.h"
 
 
-#define dbg_sys   0
+#define dbg_sys   1
 
 #define DOWNGRADE_EMERGENCY_PUMP_TO_CRITICAL      1
     // if set, the emergency alarm will be downgraded to the
@@ -56,7 +56,11 @@ void bpSystem::init()
     m_relay_time = 0;
     m_relay_delay = 0;
     m_emergency_relay_time = 0;
+
     memset(m_hour_counts,0,MAX_HOURS);
+
+    m_num_runs = 0;
+    memset(m_duration_history,0,sizeof(int) * MAX_STAT_RUNS);
 }
 
 
@@ -165,10 +169,16 @@ void bpSystem::clearError()
 
 
 void bpSystem::forceRelay(bool on)
-    // relay stays on if either user or
-    // system has it turned on
+    // if the user turns the relay on or off
+    // it stops any system relay
+    // They can't get here from an error condition ...
 {
-    display(0,"bpSystem::forceRelay(%d)",on);
+    display(dbg_sys,"bpSystem::forceRelay(%d)",on);
+
+    m_relay_time = 0;
+    m_relay_delay = 0;
+    clearState(STATE_RELAY_ON);
+
     if (on)
     {
         setState(STATE_RELAY_FORCE_ON);
@@ -177,8 +187,7 @@ void bpSystem::forceRelay(bool on)
     else
     {
         clearState(STATE_RELAY_FORCE_ON);
-        if (!(m_state & (STATE_RELAY_ON|STATE_RELAY_EMERGENCY)))
-            digitalWrite(PIN_RELAY,0);
+        digitalWrite(PIN_RELAY,0);
     }
 }
 
@@ -281,7 +290,7 @@ void bpSystem::clearAlarmState(u16 alarm_state)
 
 void bpSystem::setRelay(bool on)
     // relay stays on if either user or
-    // system has it turned on
+    // emergency has turned it on
 {
     if (on)
     {
@@ -290,9 +299,13 @@ void bpSystem::setRelay(bool on)
     }
     else
     {
+        m_relay_time = 0;
+        m_relay_delay = 0;
         clearState(STATE_RELAY_ON);
         if (!(m_state & (STATE_RELAY_FORCE_ON|STATE_RELAY_EMERGENCY)))
+        {
             digitalWrite(PIN_RELAY,0);
+        }
     }
 }
 
@@ -319,42 +332,47 @@ void bpSystem::loop()
         // We want to measure the duration, including the relay time
         // if the extra primary mode is set to START, but not if the
         // relay is on AFTER the main pump goes off in END mode, or
-        // of any FORCED on situations ...
+        // of any FORCED or EMERGENCY situations ...
 
         int value = analogRead(PIN_SENSE1);
         u8 on = value > PUMP_SENSE_THRESHOLD ? 1 : 0;
         u8 prev_on = m_state & STATE_PUMP_ON ? 1 : 0;
-        time_t duration = prev_on ? m_time - m_time1 : 0;
-        if (prev_on && duration == 0) duration = 1;
+        time_t duration = 0;
 
-        if (on && prev_on &&
-            !(m_state & STATE_RELAY_FORCE_ON) &&
-            (!(m_state & STATE_RELAY_ON) || !getPref(PREF_EXTRA_PRIMARY_MODE)))
+        // with a minimum of one second
+
+        if (on && prev_on)
         {
-            m_duration = duration;
+            duration = m_time - m_time1;
+            if (duration == 0) duration = 1;
 
-            static time_t last_duration = 0;
-            if (last_duration != m_duration)
+            if (!(m_state & (STATE_RELAY_FORCE_ON|STATE_RELAY_EMERGENCY)))
             {
-                last_duration = m_duration;
-                display(0,"duration=%d",m_duration);
+                if (!(m_state & STATE_RELAY_ON) || !getPref(PREF_EXTRA_PRIMARY_MODE))
+                {
+                    m_duration = duration;
+                    static time_t last_duration = 0;
+                    if (last_duration != m_duration)
+                    {
+                        last_duration = m_duration;
+                        display(dbg_sys,"m_duration=%d",m_duration);
+                    }
+                }
             }
         }
 
 
-        if (!(m_state & STATE_RELAY_ON))
+        if (!(m_state & STATE_RELAY_ON) || !getPref(PREF_EXTRA_PRIMARY_MODE))
         {
             // state has changed
             if (on != prev_on)
             {
-                m_duration = 1;
                 m_time1_millis = now_millis;
                 display(dbg_sys,"value1=%d",value);
                 if (on)
                 {
-                    m_duration = 0;
+                    m_duration = 1;
                     setState(STATE_PUMP_ON);
-
                     if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
                         getPref(PREF_EXTRA_PRIMARY_MODE) == 0)
                     {
@@ -402,12 +420,13 @@ void bpSystem::loop()
                 // Primary pump off ...
                 // We cannot distinguish between it being turn off via the
                 // bilge switch, or if it our relay was on and just turned
-                // off, so we just record the actual time the pump ran ...
+                // off, but we have to clear the state in both cases
 
                 else
                 {
                     clearState(STATE_PUMP_ON);
-                    display(dbg_sys,"duration=%d seconds",duration);
+                    display(dbg_sys,"off duration=%d seconds",m_duration);
+                    addDurationStats(m_duration);
                     if (getPref(PREF_EXTRA_PRIMARY_TIME) &&
                         getPref(PREF_EXTRA_PRIMARY_MODE) == 1)
                     {
@@ -464,6 +483,14 @@ void bpSystem::loop()
                 setState(STATE_EMERGENCY_PUMP_ON | STATE_EMERGENCY_PUMP_RUN);
                 setAlarmState(ALARM_STATE_EMERGENCY | ALARM_STATE_CRITICAL);
 
+                // the emergency overrides any force of relay
+                // or extra time that is currently in progrwess
+
+                m_relay_time = 0;
+                m_relay_delay = 0;
+                clearState(STATE_RELAY_ON | STATE_RELAY_FORCE_ON);
+                digitalWrite(PIN_RELAY,0);
+
                 if (getPref(PREF_PRIMARY_ON_EMERGENCY))
                 {
                     m_emergency_relay_time = m_time;
@@ -499,7 +526,6 @@ void bpSystem::loop()
             if (m_time > m_relay_time + getPref(PREF_EXTRA_PRIMARY_TIME))
             {
                 setRelay(0);
-                m_relay_time = 0;
             }
         }
         else if (m_relay_delay)
@@ -519,3 +545,87 @@ void bpSystem::loop()
     bpui.run();
 
 }   // bpSystem::run()
+
+
+
+//-----------------------------------------
+// duration statistics
+//-----------------------------------------
+
+
+void bpSystem::addDurationStats(int duration)
+    // I assume that certainly durations will not overflow a 15 bit integer
+{
+    int use_run = m_num_runs % MAX_STAT_RUNS;
+    m_duration_history[use_run] = duration;
+    m_num_runs++;
+    display(dbg_sys,"addDuration(%d) to slot %d of %d",duration,use_run,m_num_runs);
+}
+
+
+void bpSystem::getStatistics(int *num_runs, int *min10, int *max10, int *avg10, int *min50, int *max50,  int *avg50)
+    // I assume that certainly durations will not overflow a 15 bit integer
+    // returns the number of runs that were actually used ...
+{
+    *min10 = 32767;
+    *max10 = 0;
+    *avg10 = 0;
+
+    *min50 = 32767;
+    *max50 = 0;
+    *avg50 = 0;
+
+    int32_t tot10 = 0;
+    int32_t tot50 = 0;
+
+    int use_run = (m_num_runs-1) % MAX_STAT_RUNS;
+    int use_num_runs = m_num_runs > MAX_STAT_RUNS ? MAX_STAT_RUNS-1 : m_num_runs;
+    *num_runs = use_num_runs;
+
+    for (int i=0; i<use_num_runs; i++)
+    {
+        int dur = m_duration_history[use_run];
+        display(dbg_sys,"%d - slot[%d]=%d",i,use_run,dur);
+        use_run--;
+
+        if (use_run < 0) use_run = MAX_STAT_RUNS-1;
+
+        if (i<10)
+        {
+            tot10 += dur;
+            if (dur > *max10) *max10 = dur;
+            if (dur < *min10) *min10 = dur;
+        }
+
+        tot50 += dur;
+        if (dur > *max50) *max50 = dur;
+        if (dur < *min50) *min50 = dur;
+    }
+
+    // divide to get averages
+
+    if (use_num_runs)
+    {
+        tot10 /= (use_num_runs > 10) ? 10 : use_num_runs;
+        tot50 /= use_num_runs;
+        *avg10 = tot10;
+        *avg50 = tot50;
+    }
+
+    // fixup in case no runs
+
+    else
+    {
+        *min10 = 0;
+        *min50 = 0;
+    }
+
+    display(0,"getStatistics(%d,%d,%d,%d,%d,%d,%d)",
+        *num_runs,
+        *min10,
+        *max10,
+        *avg10,
+        *min50,
+        *max50,
+        *avg50 );
+}

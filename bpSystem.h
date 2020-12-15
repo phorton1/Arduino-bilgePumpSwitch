@@ -31,6 +31,10 @@
 #define STATE_TOO_LONG             0x0200
 #define STATE_CRITICAL_TOO_LONG    0x0400
 
+#define MAX_STAT_RUNS              50
+    // we keep the run times of the last 50 runs
+    // and deliver them as min/max/average over
+    // the last 50, or last 10 runs ...
 
 extern const PROGMEM char *stateName(u16 state);
 extern const PROGMEM char *alarmStateName(u16 state);
@@ -57,8 +61,12 @@ class bpSystem
         u16 getState()               { return m_state; }
         u16 getAlarmState()          { return m_alarm_state; }
         int getHour()                { return m_hour; }
+
         void getCounts(int *hour_count, int *day_count, int *week_count, int *total_count);
             // return the counts by hour, day, week, and total
+        void getStatistics(int *num_runs, int *min10, int *max10, int *avg10, int *min50, int *max50,  int *avg50);
+            // return the min, max, and average duration of the last 10 and the last 50 runs
+
 
         void reset();                   // clear all history and state
         void suppressAlarm();           // add the alarm suppressed bit
@@ -102,6 +110,10 @@ class bpSystem
         void setAlarmState(u16 alarm_state);
         void clearAlarmState(u16 alarm_state);
         void setRelay(bool on);
+        void addDurationStats(int duration);
+
+        uint32_t m_num_runs;
+        int m_duration_history[MAX_STAT_RUNS];
 
 };  // class bpSystem
 

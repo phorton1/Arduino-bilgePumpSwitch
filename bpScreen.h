@@ -22,6 +22,8 @@
 #define SCREEN_ALARM_CANCELED  5
 #define SCREEN_MAIN_STATS      6
 #define SCREEN_WEEK_STATS      7
+#define SCREEN_STATS_10        8
+#define SCREEN_STATS_50        9
 
 
 

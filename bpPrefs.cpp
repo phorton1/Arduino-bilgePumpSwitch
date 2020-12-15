@@ -2,9 +2,12 @@
 #include "bpPrefs.h"
 #include "EEPROM.h"
 
+#define dbg_prefs   0
+
+
 u8 pref_cache[NUM_PREFS];
 
-#define PREF_DEFAULT_INITIALIZED             2
+#define PREF_DEFAULT_INITIALIZED             1
     // change this to cause next reboot to reset preferences
     // just don't make it 255 (255 == eeprom not initialized)!
 
@@ -15,7 +18,7 @@ u8 pref_cache[NUM_PREFS];
 #define PREF_DEFAULT_ERROR_RUNS_PER_HOUR     2          // off,num
 #define PREF_DEFAULT_ERROR_RUNS_PER_DAY      12         // off,secs
 #define PREF_DEFAULT_EXTRA_PRIMARY_TIME      5          // off,secs
-#define PREF_DEFAULT_EXTRA_PRIMARY_MODE      0          // start, end, if primary_time
+#define PREF_DEFAULT_EXTRA_PRIMARY_MODE      1          // start, end, if primary_time
 #define PREF_DEFAULT_END_PUMP_RELAY_DELAY    2          // secs if mode=='end' and time != 0
 #define PREF_DEFAULT_PRIMARY_ON_EMERGENCY    30          // 255        // off,secs
 
@@ -44,7 +47,7 @@ u8 getPref(int pref_num)
 
 void setPref(int pref_num, u8 value)
 {
-    display(0,"writing %S=%d",prefName(pref_num),value);
+    display(dbg_prefs,"writing %S=%d",prefName(pref_num),value);
     pref_cache[pref_num] = value;
 
     // pref disabled is only valid in memory till next
@@ -57,13 +60,13 @@ void setPref(int pref_num, u8 value)
 
 void initPrefs()
 {
-    display(0,"initPrefs()",0);
+    display(dbg_prefs,"initPrefs()",0);
     if (EEPROM.read(PREF_INITIALIZED) != PREF_DEFAULT_INITIALIZED)
         resetPrefs();
     for (int i=0; i<NUM_PREFS; i++)
     {
         pref_cache[i] = EEPROM.read(i);
-        display(0,"%S=%d",prefName(i),pref_cache[i]);
+        display(dbg_prefs,"%S=%d",prefName(i),pref_cache[i]);
     }
 }
 

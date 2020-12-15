@@ -87,8 +87,9 @@ of some sort of the bilge pump behavior is important.
 The device maintains a 14 day history of the number of times
 the bilge pump runs in each hour. It keep track of the time
 since, and the duration of, the most recent previous main pump run.
-It also keeps weighted averages for the durations of runs for the
-previous day, week, and total device history.
+It also keeps the durations of the last 50 runs and can deliver
+averages and the min and max of those on various statistics
+screen.
 
 
 

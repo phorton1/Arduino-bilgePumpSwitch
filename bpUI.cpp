@@ -154,7 +154,6 @@ bool bpUI::onButton(int i, u8 event_type)
 {
     display(dbg_ui,"bpUI::onButton(%d,%d)",i,event_type);
 
-
     // eat the keystroke
 
     if (!m_backlight_on)
@@ -173,8 +172,9 @@ bool bpUI::onButton(int i, u8 event_type)
         else
         {
             suppressAlarm();
-            bp_screen.setScreen(SCREEN_MAIN_ERROR);
+            bp_screen.setScreen(SCREEN_PRESS_TO_CANCEL);
         }
+        setMenuTimeout();
         return true;
     }
 
@@ -182,8 +182,8 @@ bool bpUI::onButton(int i, u8 event_type)
 
     else
     {
-        setMenuTimeout();
         backlightOn();      // to set timer if needed
+        setMenuTimeout();
         return bp_screen.onButton(i,event_type);
     }
 }
