@@ -12,11 +12,11 @@
     // if set, the emergency alarm will be downgraded to the
     // telephone ringing if and when emergency pump disengages
 
-const char prog_version[] PROGMEM = "1.1";
+const char prog_version[] PROGMEM = "1.2";
 
 
-#define PIN_SENSE1          A0
-#define PIN_SENSE2          A1
+#define PIN_SENSE2          A0
+#define PIN_SENSE1          A1
 #define PIN_RELAY           A3
     // A4 and A5 are used for SDA and SCL for the lcd display
 

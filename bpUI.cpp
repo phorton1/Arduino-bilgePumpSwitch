@@ -11,10 +11,12 @@
 
 #define PIN_ALARM           A2
 
-#define PIN_EXTERNAL_LED     5
-#define PIN_WARNING_LED      4
-#define PIN_PUMP2_LED        3
-#define PIN_PUMP1_LED        2
+#define PIN_WARNING_LED      7
+#define PIN_RELAY_LED        8
+#define PIN_PUMP1_LED        9
+#define PIN_PUMP2_LED        10
+#define PIN_EXTERNAL_LED     11
+
     // see bpButtons.cpp for button pin definitions
 
 #define MENU_TIMEOUT        16000
@@ -51,6 +53,7 @@ void bpUI::setup()
 {
     pinMode(PIN_ALARM,OUTPUT);
     pinMode(PIN_WARNING_LED, OUTPUT);
+    pinMode(PIN_RELAY_LED, OUTPUT);
     pinMode(PIN_PUMP1_LED, OUTPUT);
     pinMode(PIN_PUMP2_LED, OUTPUT);
     pinMode(PIN_EXTERNAL_LED, OUTPUT);
@@ -58,6 +61,7 @@ void bpUI::setup()
     digitalWrite(PIN_ALARM,0);
     digitalWrite(PIN_EXTERNAL_LED, 0);
     digitalWrite(PIN_WARNING_LED, 0);
+    digitalWrite(PIN_RELAY_LED, 0);
     digitalWrite(PIN_PUMP1_LED, 0);
     digitalWrite(PIN_PUMP2_LED, 0);
 
@@ -81,6 +85,8 @@ void bpUI::selfTest()
     delay(500);
     digitalWrite(PIN_PUMP2_LED, 1);
     delay(500);
+    digitalWrite(PIN_RELAY_LED, 1);
+    delay(500);
     digitalWrite(PIN_WARNING_LED, 1);
     delay(500);
     digitalWrite(PIN_EXTERNAL_LED, 1);
@@ -98,6 +104,7 @@ void bpUI::selfTest()
 
     digitalWrite(PIN_EXTERNAL_LED, 0);
     digitalWrite(PIN_WARNING_LED, 0);
+    digitalWrite(PIN_RELAY_LED, 0);
     digitalWrite(PIN_PUMP1_LED, 0);
     digitalWrite(PIN_PUMP2_LED, 0);
 
@@ -132,6 +139,13 @@ void bpUI::cancelAlarm()
     digitalWrite(PIN_ALARM,0);
     bp.clearError();
     init();
+
+    digitalWrite(PIN_EXTERNAL_LED, 0);
+    digitalWrite(PIN_WARNING_LED, 0);
+    digitalWrite(PIN_RELAY_LED, 0);
+    digitalWrite(PIN_PUMP1_LED, 0);
+    digitalWrite(PIN_PUMP2_LED, 0);
+
 }
 
 
@@ -203,8 +217,10 @@ void bpUI::run()
     int bp_state = bp.getState();
     if (m_ui_state != bp_state)
     {
+        int ANY_RELAY = STATE_RELAY_ON | STATE_RELAY_FORCE_ON | STATE_RELAY_EMERGENCY;
         digitalWrite(PIN_PUMP1_LED,bp_state & STATE_PUMP_ON?1:0);
         digitalWrite(PIN_PUMP2_LED,bp_state & STATE_EMERGENCY_PUMP_ON?1:0);
+        digitalWrite(PIN_RELAY_LED,bp_state & ANY_RELAY?1:0);
         display(dbg_ui,"ui_state changed from 0x%02x to 0x%02x",m_ui_state,bp_state);
         m_ui_state = bp_state;
     }

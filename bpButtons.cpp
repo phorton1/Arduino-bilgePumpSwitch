@@ -9,10 +9,10 @@
 #define dbg_buttons  0
 
 
-#define PIN_BUTTON0          8
+#define PIN_BUTTON0          4
 #define NUM_BUTTONS          3
-    // the button pins are 10, 9, and 8
-#define BUTTON_PIN(i)        (PIN_BUTTON0 + NUM_BUTTONS - i - 1)
+    // the button pins are d4, d3, and d2
+#define BUTTON_PIN(i)        (PIN_BUTTON0 - i)
 
 
 #define POLL_INTERVAL       20  // ms
@@ -31,7 +31,7 @@ void bpButtons::setup()
     m_handled = 0;
 
     for (int i=0; i<NUM_BUTTONS; i++)
-        pinMode(PIN_BUTTON0+i,INPUT_PULLUP);
+        pinMode(BUTTON_PIN(i),INPUT_PULLUP);
 }
 
 void bpButtons::run()
