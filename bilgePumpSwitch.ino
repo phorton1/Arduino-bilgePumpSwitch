@@ -9,6 +9,15 @@
 
 // Not much ram.   Need at least 255 bytes for stack and display
 
+// ToDo:
+//
+// 0. REPLACE Yellow LED with RED
+// 1. BLUE LED too bright ... try 470 ohm resistor on BLUE leds
+// 2. GREEN LED too dim ... try 100 ohm?
+// 3. YELLOW LED too dim ... definitely 100 ohm.
+//
+//
+// Possible:  Multi Color LED for salong ...
 
 #include "myDebug.h"
 #include "bpSystem.h"

@@ -81,9 +81,9 @@ void bpUI::selfTest()
     // flash the leds and cycle the pump relay
 {
     delay(500);
-    digitalWrite(PIN_PUMP1_LED, 1);
-    delay(500);
     digitalWrite(PIN_PUMP2_LED, 1);
+    delay(500);
+    digitalWrite(PIN_PUMP1_LED, 1);
     delay(500);
     digitalWrite(PIN_RELAY_LED, 1);
     delay(500);
@@ -219,6 +219,7 @@ void bpUI::run()
     {
         int ANY_RELAY = STATE_RELAY_ON | STATE_RELAY_FORCE_ON | STATE_RELAY_EMERGENCY;
         digitalWrite(PIN_PUMP1_LED,bp_state & STATE_PUMP_ON?1:0);
+        digitalWrite(PIN_EXTERNAL_LED,bp_state & STATE_PUMP_ON?1:0);
         digitalWrite(PIN_PUMP2_LED,bp_state & STATE_EMERGENCY_PUMP_ON?1:0);
         digitalWrite(PIN_RELAY_LED,bp_state & ANY_RELAY?1:0);
         display(dbg_ui,"ui_state changed from 0x%02x to 0x%02x",m_ui_state,bp_state);
@@ -428,6 +429,8 @@ void bpUI::handleAlarms()
                     digitalWrite(PIN_EXTERNAL_LED,0);
                     delay(100);
                 }
+                digitalWrite(PIN_EXTERNAL_LED,m_ui_state & STATE_PUMP_ON?1:0);
+
             }
 
             // chirp and flashes inline
@@ -450,6 +453,7 @@ void bpUI::handleAlarms()
                     digitalWrite(PIN_EXTERNAL_LED,0);
                     delay(300);
                 }
+                digitalWrite(PIN_EXTERNAL_LED,m_ui_state & STATE_PUMP_ON?1:0);
             }
         }
     }
